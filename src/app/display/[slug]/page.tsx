@@ -21,10 +21,10 @@ export default async function DisplayPage({ params, searchParams }: Props) {
   if (!shop || !displayKeyMatches(shop.display_key, key)) notFound();
 
   const url = await customerUrl(shop.slug);
-  const [data, qrSvg] = await Promise.all([
-    rpc<{ state: QueueSnapshot; checkinCode: string }>("pb_display_state", { p_shop_id: shop.id }),
-    QRCode.toString(url, { type: "svg", margin: 1, errorCorrectionLevel: "M" }),
-  ]);
+  const data = await rpc<{ state: QueueSnapshot; checkinCode: string }>("pb_display_state", { p_shop_id: shop.id });
+  const qrUrl = new URL(url);
+  qrUrl.searchParams.set("code", data.checkinCode);
+  const qrSvg = await QRCode.toString(qrUrl.toString(), { type: "svg", margin: 1, errorCorrectionLevel: "M" });
 
   return (
     <div style={brandStyle(shop.primary_color)}>

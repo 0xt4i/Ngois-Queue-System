@@ -18,7 +18,15 @@ const PROFILE_KEY = "pb_profile";
 
 type Fields = Record<string, string>;
 
-export function CustomerHome({ shop, initialState }: { shop: PublicShop; initialState: QueueSnapshot }) {
+export function CustomerHome({
+  shop,
+  initialState,
+  initialCode,
+}: {
+  shop: PublicShop;
+  initialState: QueueSnapshot;
+  initialCode?: string;
+}) {
   const router = useRouter();
   const { snap, connected, lastUpdate } = useQueueState(shop.id, shop.slug, initialState);
   const [checking, setChecking] = useState(true);
@@ -33,7 +41,7 @@ export function CustomerHome({ shop, initialState }: { shop: PublicShop; initial
     const token = loadTicketToken(shop.slug);
     try {
       const p = JSON.parse(localStorage.getItem(PROFILE_KEY) ?? "{}") as { name?: string; phone?: string };
-      setForm((f) => ({ ...f, name: p.name ?? "", phone: p.phone ?? "" }));
+      setForm((f) => ({ ...f, code: initialCode ?? f.code, name: p.name ?? "", phone: p.phone ?? "" }));
     } catch {
       /* ignore */
     }
@@ -96,25 +104,29 @@ export function CustomerHome({ shop, initialState }: { shop: PublicShop; initial
         ) : (
           <form onSubmit={submit} noValidate>
             <h2 className="text-xl font-bold">Lấy số thứ tự</h2>
-            <p className="mt-1 text-zinc-600">Nhập mã ngày đang hiện trên màn hình tại quầy.</p>
+            <p className="mt-1 text-zinc-600">
+              {form.code ? "Mã ngày đã được điền tự động. Bạn chỉ cần nhập tên." : "Nhập mã ngày đang hiện trên màn hình tại quầy."}
+            </p>
 
             <div className="mt-5 space-y-4">
-              <div>
-                <Label htmlFor="code">Mã ngày (4 số)</Label>
-                <Input
-                  id="code"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  autoComplete="off"
-                  maxLength={4}
-                  placeholder="••••"
-                  className="tabular h-16 text-center text-3xl font-bold tracking-[0.5em]"
-                  value={form.code}
-                  aria-invalid={!!errors.code}
-                  onChange={(e) => setForm({ ...form, code: e.target.value.replace(/\D/g, "").slice(0, 4) })}
-                />
-                <FieldError>{errors.code}</FieldError>
-              </div>
+              {!form.code && (
+                <div>
+                  <Label htmlFor="code">Mã ngày (4 số)</Label>
+                  <Input
+                    id="code"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    autoComplete="off"
+                    maxLength={4}
+                    placeholder="••••"
+                    className="tabular h-16 text-center text-3xl font-bold tracking-[0.5em]"
+                    value={form.code}
+                    aria-invalid={!!errors.code}
+                    onChange={(e) => setForm({ ...form, code: e.target.value.replace(/\D/g, "").slice(0, 4) })}
+                  />
+                  <FieldError>{errors.code}</FieldError>
+                </div>
+              )}
               <div>
                 <Label htmlFor="name">Tên của bạn</Label>
                 <Input
@@ -127,21 +139,6 @@ export function CustomerHome({ shop, initialState }: { shop: PublicShop; initial
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                 />
                 <FieldError>{errors.name}</FieldError>
-              </div>
-              <div>
-                <Label htmlFor="phone">Số điện thoại</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  inputMode="tel"
-                  autoComplete="tel"
-                  placeholder="VD: 0901234567"
-                  maxLength={14}
-                  value={form.phone}
-                  aria-invalid={!!errors.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                />
-                <FieldError>{errors.phone}</FieldError>
               </div>
             </div>
 

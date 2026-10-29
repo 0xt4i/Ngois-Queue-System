@@ -8,20 +8,22 @@ import { brandStyle } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
-type Props = { params: Promise<{ slug: string }> };
+type Props = { params: Promise<{ slug: string }>; searchParams: Promise<{ code?: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const shop = await getShopBySlug((await params).slug);
   return { title: shop ? `Lấy số — ${shop.name}` : "Lấy số" };
 }
 
-export default async function ShopPage({ params }: Props) {
+export default async function ShopPage({ params, searchParams }: Props) {
   const shop = await getShopBySlug((await params).slug);
   if (!shop) notFound();
   const state = await rpc<QueueSnapshot>("pb_public_state", { p_shop_id: shop.id });
+  const { code: queryCode } = await searchParams;
+  const code = queryCode && /^\d{4}$/.test(queryCode) ? queryCode : undefined;
   return (
     <div style={brandStyle(shop.primary_color)}>
-      <CustomerHome shop={toPublicShop(shop)} initialState={state} />
+      <CustomerHome shop={toPublicShop(shop)} initialState={state} initialCode={code} />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { Maximize, Volume2, VolumeX } from "lucide-react";
+import QRCode from "qrcode";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PublicShop, QueueSnapshot } from "@/lib/types";
 import { useQueueState } from "@/lib/use-queue-state";
@@ -45,6 +46,7 @@ export function DisplayBoard({
   const displayUrl = `/api/shops/${shop.slug}/display?key=${encodeURIComponent(displayKey)}`;
   const { snap, connected, disconnectedSince } = useQueueState(shop.id, shop.slug, initialState);
   const [code, setCode] = useState(initialCode);
+  const [qrMarkup, setQrMarkup] = useState(qrSvg);
   const [flash, setFlash] = useState(0);
   const [soundOn, setSoundOn] = useState(false);
   const [needsTap, setNeedsTap] = useState(false);
@@ -64,6 +66,17 @@ export function DisplayBoard({
   useEffect(() => {
     void loadCode();
   }, [snap?.version, loadCode]);
+  useEffect(() => {
+    let cancelled = false;
+    const url = new URL(customerUrl, window.location.origin);
+    url.searchParams.set("code", code);
+    void QRCode.toString(url.toString(), { type: "svg", margin: 1, errorCorrectionLevel: "M" }).then((svg) => {
+      if (!cancelled) setQrMarkup(svg);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [code, customerUrl]);
   useEffect(() => {
     const id = setInterval(() => void loadCode(), 60_000);
     return () => clearInterval(id);
@@ -226,8 +239,8 @@ export function DisplayBoard({
           <section className="mt-auto flex items-center gap-[2.5vh] rounded-[3vh] bg-white p-[2.5vh] text-zinc-950">
             <div
               className="aspect-square h-[22vh] shrink-0 [&>svg]:h-full [&>svg]:w-full"
-              aria-label={`Mã QR tới ${customerUrl}`}
-              dangerouslySetInnerHTML={{ __html: qrSvg }}
+              aria-label={`Mã QR tới ${customerUrl}?code=${code}`}
+              dangerouslySetInnerHTML={{ __html: qrMarkup }}
             />
             <div className="min-w-0">
               <p className="text-[2.6vh] font-semibold leading-tight">Quét mã để lấy số</p>

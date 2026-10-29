@@ -19,7 +19,15 @@ export const nameSchema = z.string().trim().min(1, "Vui lòng nhập tên").max(
 
 export const codeSchema = z.string().trim().regex(/^\d{4}$/, "Mã ngày gồm 4 chữ số");
 
-export const createTicketSchema = z.object({ code: codeSchema, name: nameSchema, phone: phoneSchema });
+export const createTicketSchema = z.object({
+  code: codeSchema,
+  name: nameSchema,
+  phone: z
+    .string()
+    .optional()
+    .transform((v) => (v && v.trim() ? normalizePhone(v) : undefined))
+    .pipe(z.string().regex(/^0\d{9}$/, PHONE_MSG).optional()),
+});
 export const lookupSchema = z.object({ code: codeSchema, phone: phoneSchema });
 
 export const manualTicketSchema = z.object({
