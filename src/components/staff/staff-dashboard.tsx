@@ -165,6 +165,7 @@ export function StaffDashboard({ me, initialQueue }: { me: StaffUser; initialQue
   }
 
   const displayHref = `/display/${queue.shop.slug}?key=${queue.shop.displayKey}`;
+  const roleLabel = me.role === "OWNER" ? "Chủ tiệm" : "Nhân viên";
 
   return (
     <main className="mx-auto max-w-6xl px-4 pb-16">
@@ -172,7 +173,7 @@ export function StaffDashboard({ me, initialQueue }: { me: StaffUser; initialQue
         <div>
           <h1 className="text-xl font-bold">{queue.shop.name}</h1>
           <p className="text-sm text-zinc-500">
-            {me.displayName || me.username} · {me.role === "OWNER" ? "Chủ tiệm" : "Nhân viên"} · Ngày{" "}
+            {roleLabel} · Ngày{" "}
             {queue.session.businessDate.split("-").reverse().join("/")}
           </p>
         </div>
@@ -328,8 +329,8 @@ export function StaffDashboard({ me, initialQueue }: { me: StaffUser; initialQue
               <Stat label="Đã chụp" value={stats?.done} />
               <Stat label="Đang chờ" value={stats ? stats.waiting : undefined} />
               <Stat label="Gọi lỡ / mất lượt" value={stats ? `${stats.skipped}/${stats.expired}` : undefined} />
-              <Stat label="TB chụp" value={stats ? fmtDuration(stats.avgServiceSeconds) : undefined} />
-              <Stat label="TB chờ" value={stats ? fmtDuration(stats.avgWaitSeconds) : undefined} />
+              <Stat label="Dự kiến chụp" value="15 phút" />
+              <Stat label="Dự kiến chờ" value="10 phút" />
             </CardContent>
           </Card>
         </div>

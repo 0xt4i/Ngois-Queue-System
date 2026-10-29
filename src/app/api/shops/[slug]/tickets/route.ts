@@ -27,7 +27,7 @@ export const POST = route("create-ticket", async (req, { params }: { params: Pro
     p_shop_id: shop.id,
     p_code: code,
     p_name: name,
-    p_phone: phone,
+    p_phone: phone ?? null,
     p_source: "QR",
     p_token: randomBytes(24).toString("base64url"), // 192-bit
   });

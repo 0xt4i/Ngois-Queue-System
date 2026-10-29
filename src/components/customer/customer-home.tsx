@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ConnectionStatus } from "@/components/ui/connection-status";
-import { Dialog } from "@/components/ui/dialog";
 import { FieldError, Input, Label } from "@/components/ui/input";
 import { apiGet, apiSend, clearTicketToken, loadTicketToken, saveTicketToken } from "@/lib/api-client";
 import type { PublicShop, QueueSnapshot, TicketView } from "@/lib/types";
@@ -34,14 +33,14 @@ export function CustomerHome({
   const [errors, setErrors] = useState<Fields>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [lookupOpen, setLookupOpen] = useState(false);
 
   // Thiết bị đã có vé hôm nay → vào thẳng trang theo dõi vé
   useEffect(() => {
     const token = loadTicketToken(shop.slug);
+    setForm((f) => ({ ...f, code: initialCode ?? f.code }));
     try {
       const p = JSON.parse(localStorage.getItem(PROFILE_KEY) ?? "{}") as { name?: string; phone?: string };
-      setForm((f) => ({ ...f, code: initialCode ?? f.code, name: p.name ?? "", phone: p.phone ?? "" }));
+      setForm((f) => ({ ...f, name: p.name ?? "", phone: "" }));
     } catch {
       /* ignore */
     }
@@ -57,7 +56,7 @@ export function CustomerHome({
         setChecking(false);
       }
     });
-  }, [shop.slug, router]);
+  }, [initialCode, shop.slug, router]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -74,7 +73,7 @@ export function CustomerHome({
       return;
     }
     try {
-      localStorage.setItem(PROFILE_KEY, JSON.stringify({ name: form.name, phone: form.phone }));
+      localStorage.setItem(PROFILE_KEY, JSON.stringify({ name: form.name }));
     } catch {
       /* ignore */
     }
@@ -152,88 +151,6 @@ export function CustomerHome({
         )}
       </section>
 
-      {!checking && (
-        <p className="mt-6 text-center">
-          <button
-            type="button"
-            className="min-h-11 font-medium text-brand underline underline-offset-4"
-            onClick={() => setLookupOpen(true)}
-          >
-            Đã có số? Tra cứu bằng số điện thoại
-          </button>
-        </p>
-      )}
-
-      <LookupDialog
-        open={lookupOpen}
-        onClose={() => setLookupOpen(false)}
-        slug={shop.slug}
-        defaultPhone={form.phone}
-        onFound={(token) => {
-          saveTicketToken(shop.slug, token);
-          router.push(`/t/${token}`);
-        }}
-      />
     </main>
-  );
-}
-
-function LookupDialog({
-  open,
-  onClose,
-  slug,
-  defaultPhone,
-  onFound,
-}: {
-  open: boolean;
-  onClose: () => void;
-  slug: string;
-  defaultPhone: string;
-  onFound: (token: string) => void;
-}) {
-  const [phone, setPhone] = useState(defaultPhone);
-  const [code, setCode] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    if (open) setPhone((p) => p || defaultPhone);
-  }, [open, defaultPhone]);
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    const r = await apiSend<{ token: string }>(`/api/shops/${slug}/tickets/lookup`, { phone, code });
-    setBusy(false);
-    if (!r.ok) return setError(r.message);
-    onFound(r.token);
-  }
-
-  return (
-    <Dialog open={open} onClose={onClose} title="Tra cứu số của bạn">
-      <form onSubmit={submit} className="space-y-4" noValidate>
-        <div>
-          <Label htmlFor="lk-phone">Số điện thoại đã dùng khi lấy số</Label>
-          <Input id="lk-phone" type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
-        </div>
-        <div>
-          <Label htmlFor="lk-code">Mã ngày trên màn hình tại quầy</Label>
-          <Input
-            id="lk-code"
-            inputMode="numeric"
-            maxLength={4}
-            className="tabular text-center text-2xl font-bold tracking-[0.4em]"
-            value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
-          />
-        </div>
-        {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-        <Button type="submit" className="w-full" disabled={busy}>
-          {busy && <Loader2 className="h-5 w-5 animate-spin" />}
-          Tìm số của tôi
-        </Button>
-      </form>
-    </Dialog>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, BellRing, CheckCircle2, Clock, Loader2, PartyPopper, XCircle } from "lucide-react";
+import { AlertTriangle, BellRing, CheckCircle2, Clock, Loader2, PartyPopper, QrCode, XCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,19 @@ export function TicketTracker({ initialTicket, initialState }: { initialTicket: 
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
+  const [ticketQr, setTicketQr] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void import("qrcode").then(({ toDataURL }) =>
+      toDataURL(`${window.location.origin}/t/${ticket.token}`, { margin: 1, width: 220 }).then((dataUrl) => {
+        if (!cancelled) setTicketQr(dataUrl);
+      }),
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [ticket.token]);
 
   useEffect(() => {
     if (ticket.isToday) saveTicketToken(ticket.shop.slug, ticket.token);
@@ -153,6 +166,18 @@ export function TicketTracker({ initialTicket, initialState }: { initialTicket: 
       {!isFinal && <ConnectionStatus connected={connected} lastUpdate={lastUpdate} className="mt-4" />}
 
       <div className="mt-6 space-y-3">
+        <section className="rounded-3xl bg-white p-5 text-center shadow-sm ring-1 ring-zinc-200">
+          <div className="flex items-center justify-center gap-2 font-semibold">
+            <QrCode className="h-5 w-5 text-brand" /> QR vé của bạn
+          </div>
+          {ticketQr ? (
+            // eslint-disable-next-line @next/next/no-img-element -- QR được tạo ở trình duyệt
+            <img src={ticketQr} alt="QR để mở lại vé" className="mx-auto mt-3 h-44 w-44" />
+          ) : (
+            <p className="mt-3 text-sm text-zinc-500">Đang tạo QR…</p>
+          )}
+          <p className="mt-2 text-sm text-zinc-500">Chụp màn hình QR này để mở lại vé khi cần.</p>
+        </section>
         {isFinal ? (
           <Button size="lg" className="w-full" onClick={newTicket}>
             Lấy số mới
