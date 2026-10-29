@@ -44,8 +44,6 @@ export const loginSchema = z.object({
   password: z.string().min(1).max(200),
 });
 
-export const rotateCodeSchema = z.object({ code: codeSchema.optional() });
-
 export const settingsSchema = z.object({
   name: z.string().trim().min(1, "Vui lòng nhập tên tiệm").max(80),
   slug: z

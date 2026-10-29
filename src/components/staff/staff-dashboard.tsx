@@ -2,13 +2,11 @@
 
 import {
   ExternalLink,
-  KeyRound,
   Loader2,
   LogOut,
   Monitor,
   Pause,
   Play,
-  RefreshCw,
   Settings,
   SkipForward,
   Undo2,
@@ -22,7 +20,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConnectionStatus } from "@/components/ui/connection-status";
 import { Dialog } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { apiSend } from "@/lib/api-client";
 import type { StaffUser } from "@/lib/auth";
 import { fmtClock, fmtDuration, fmtTime, maskPhone } from "@/lib/format";
@@ -46,7 +43,6 @@ export function StaffDashboard({ me, initialQueue }: { me: StaffUser; initialQue
   const clockOffset = useRef(new Date(initialQueue.serverTime).getTime() - Date.now());
   const [manualOpen, setManualOpen] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState<StaffTicket | null>(null);
-  const [customCode, setCustomCode] = useState("");
 
   const { snap, connected, lastUpdate } = useQueueState(queue.shop.id, queue.shop.slug, null, undefined, 5_000);
 
@@ -273,35 +269,7 @@ export function StaffDashboard({ me, initialQueue }: { me: StaffUser; initialQue
                   </p>
                   <p className="text-xs text-zinc-400">Đổi lúc {fmtTime(queue.session.codeUpdatedAt)}</p>
                 </div>
-                <Button
-                  variant="outline"
-                  onClick={() => act("/api/staff/session/rotate-code", {}, "Đã đổi mã ngày")}
-                  disabled={busy}
-                >
-                  <RefreshCw className="h-4 w-4" /> Đổi mã
-                </Button>
               </div>
-              <form
-                className="flex gap-2"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (!/^\d{4}$/.test(customCode)) return showToast({ kind: "error", text: "Mã gồm đúng 4 chữ số" });
-                  void act("/api/staff/session/rotate-code", { code: customCode }, "Đã đặt mã mới").then(() =>
-                    setCustomCode(""),
-                  );
-                }}
-              >
-                <Input
-                  inputMode="numeric"
-                  maxLength={4}
-                  placeholder="Tự đặt mã 4 số"
-                  value={customCode}
-                  onChange={(e) => setCustomCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                />
-                <Button type="submit" variant="secondary" disabled={busy}>
-                  <KeyRound className="h-4 w-4" /> Đặt
-                </Button>
-              </form>
               {queue.shop.isPaused ? (
                 <Button className="w-full" variant="success" onClick={() => act("/api/staff/session/resume", undefined, "Đã mở lại nhận số")} disabled={busy}>
                   <Play className="h-5 w-5" /> Mở lại nhận số
