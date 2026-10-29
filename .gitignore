@@ -1,0 +1,15 @@
+node_modules/
+.next/
+out/
+.env
+.env.local
+.env*.local
+*.tsbuildinfo
+next-env.d.ts
+.vercel
+test-results/
+playwright-report/
+supabase/.branches
+supabase/.temp
+CLAUDE.md
+.claude/
