@@ -28,6 +28,7 @@ export function useQueueState(
   slug: string,
   initial: QueueSnapshot | null,
   stateUrl = `/api/shops/${slug}/state`,
+  pollSafetyMs = POLL_SAFETY_MS,
 ): QueueStateHook {
   const [snap, setSnap] = useState<QueueSnapshot | null>(initial);
   const [connected, setConnected] = useState(false);
@@ -99,9 +100,9 @@ export function useQueueState(
 
   // Polling (fallback khi mất realtime, phòng hờ khi đang có)
   useEffect(() => {
-    const id = setInterval(() => void refresh(), connected ? POLL_SAFETY_MS : POLL_FALLBACK_MS);
+    const id = setInterval(() => void refresh(), connected ? pollSafetyMs : POLL_FALLBACK_MS);
     return () => clearInterval(id);
-  }, [connected, refresh]);
+  }, [connected, pollSafetyMs, refresh]);
 
   // Tab hiện lại / có mạng lại → tải ngay
   useEffect(() => {

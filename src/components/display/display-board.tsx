@@ -44,7 +44,7 @@ export function DisplayBoard({
   customerUrl: string;
 }) {
   const displayUrl = `/api/shops/${shop.slug}/display?key=${encodeURIComponent(displayKey)}`;
-  const { snap, connected, disconnectedSince } = useQueueState(shop.id, shop.slug, initialState);
+  const { snap, connected, disconnectedSince } = useQueueState(shop.id, shop.slug, initialState, displayUrl, 5_000);
   const [code, setCode] = useState(initialCode);
   const [qrMarkup, setQrMarkup] = useState(qrSvg);
   const [flash, setFlash] = useState(0);
@@ -54,7 +54,7 @@ export function DisplayBoard({
 
   const current = snap?.currentNumber ?? null;
 
-  // Mã ngày: tải lại mỗi khi snapshot đổi (mã đổi cũng làm tăng version) + mỗi 60s (kích hoạt tự đổi mã theo giờ)
+  // Mã ngày: tải lại cùng endpoint với trạng thái để đổi nhanh sau khi có vé mới.
   const loadCode = useCallback(async () => {
     try {
       const r = await fetch(displayUrl, { cache: "no-store" });
@@ -78,7 +78,7 @@ export function DisplayBoard({
     };
   }, [code, customerUrl]);
   useEffect(() => {
-    const id = setInterval(() => void loadCode(), 60_000);
+    const id = setInterval(() => void loadCode(), 5_000);
     return () => clearInterval(id);
   }, [loadCode]);
 

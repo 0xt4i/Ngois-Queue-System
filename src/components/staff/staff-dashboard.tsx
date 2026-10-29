@@ -48,7 +48,7 @@ export function StaffDashboard({ me, initialQueue }: { me: StaffUser; initialQue
   const [confirmCancel, setConfirmCancel] = useState<StaffTicket | null>(null);
   const [customCode, setCustomCode] = useState("");
 
-  const { snap, connected, lastUpdate } = useQueueState(queue.shop.id, queue.shop.slug, null);
+  const { snap, connected, lastUpdate } = useQueueState(queue.shop.id, queue.shop.slug, null, undefined, 5_000);
 
   const showToast = useCallback((t: Toast) => {
     setToast(t);
