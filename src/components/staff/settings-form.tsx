@@ -107,7 +107,11 @@ export function SettingsForm({ initial, baseUrl, today }: { initial: SettingsVal
                 <option value="MANUAL">Nhân viên tự đặt (giữ mã cũ qua ngày)</option>
               </Select>
             </Field>
-            <Field label="Tự đổi mã mỗi N giờ" error={errors.codeRotateHours} hint="0 = tắt. Chống khách chụp mã gửi bạn ở nhà.">
+            <Field
+              label="Tự đổi mã mỗi N giờ"
+              error={errors.codeRotateHours}
+              hint="Mã cũng tự đổi ngay sau mỗi lượt nhận số. Đặt 0 để tắt đổi theo giờ."
+            >
               <Input type="number" min={0} max={24} value={v.codeRotateHours} onChange={(e) => set("codeRotateHours", Number(e.target.value))} />
             </Field>
             <Field label="Tự xoá SĐT khách sau (ngày)" error={errors.phoneRetentionDays}>

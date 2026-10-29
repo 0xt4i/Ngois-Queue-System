@@ -28,6 +28,18 @@ describe("Lấy số", () => {
     expect(ok.ticket.number).toBe(1);
   });
 
+  it("nhận số thành công → mã ngày đổi ngay", async () => {
+    const { shopId } = await createShop();
+    const first = await takeNumber(shopId);
+    const { rows } = await pool.query(`select checkin_code from public.daily_sessions where shop_id = $1`, [shopId]);
+    const nextCode = rows[0].checkin_code;
+
+    expect(nextCode).not.toBe("1234");
+    expect(await takeNumber(shopId, phone(), "1234")).toMatchObject({ ok: false, error: "BAD_CODE" });
+    const second = await takeNumber(shopId, phone(), nextCode);
+    expect(second.ticket.number).toBe(first.ticket.number + 1);
+  });
+
   it("trùng SĐT → trả về vé cũ, không tạo mới", async () => {
     const { shopId } = await createShop();
     const p = phone();
@@ -272,7 +284,7 @@ describe("Reset ngày", () => {
     const display = await call("pb_display_state", shopId);
     expect(display.state.queue).toEqual([]);
     if (display.checkinCode !== "1234") {
-      expect(await takeNumber(shopId)).toMatchObject({ ok: false, error: "BAD_CODE" });
+      expect(await takeNumber(shopId, phone(), "1234")).toMatchObject({ ok: false, error: "BAD_CODE" });
     }
     const fresh = await takeNumber(shopId, phone(), display.checkinCode);
     expect(fresh.ticket.number).toBe(1);

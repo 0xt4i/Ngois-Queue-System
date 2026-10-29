@@ -177,8 +177,14 @@ export function StaffDashboard({ me, initialQueue }: { me: StaffUser; initialQue
           </p>
         </div>
         <nav className="flex flex-wrap items-center gap-1">
-          <a href={displayHref} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center gap-1.5 rounded-xl px-3 text-sm font-medium hover:bg-zinc-100">
-            <Monitor className="h-4 w-4" /> Màn hình tiệm
+          <a
+            href={displayHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Mở màn hình tiệm ở tab mới để đưa sang màn hình phụ"
+            className="inline-flex h-11 items-center gap-1.5 rounded-xl px-3 text-sm font-medium hover:bg-zinc-100"
+          >
+            <Monitor className="h-4 w-4" /> Màn hình tiệm ↗
           </a>
           <a href={`/s/${queue.shop.slug}`} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center gap-1.5 rounded-xl px-3 text-sm font-medium hover:bg-zinc-100">
             <ExternalLink className="h-4 w-4" /> Trang khách
@@ -237,7 +243,13 @@ export function StaffDashboard({ me, initialQueue }: { me: StaffUser; initialQue
               <Button size="lg" variant="warning" onClick={skip} disabled={busy || !serving}>
                 <UserX className="h-5 w-5" /> VẮNG MẶT
               </Button>
-              <Button size="lg" variant="outline" onClick={undo} disabled={busy || !canUndo}>
+              <Button
+                size="lg"
+                variant="outline"
+                className="min-w-0 !whitespace-normal px-2 text-center text-base leading-tight sm:px-6 sm:text-lg"
+                onClick={undo}
+                disabled={busy || !canUndo}
+              >
                 <Undo2 className="h-5 w-5" />
                 {canUndo ? `HOÀN TÁC ${ACTION_LABEL[queue.undo!.action] ?? ""} (${undoLeft}s)` : "HOÀN TÁC"}
               </Button>
@@ -414,7 +426,6 @@ export function StaffDashboard({ me, initialQueue }: { me: StaffUser; initialQue
                       <p className="flex-1 truncate">{x.name}</p>
                       <span className="text-zinc-500">
                         {fmtTime(x.doneAt)}
-                        {x.calledAt && x.doneAt && ` · ${fmtDuration((new Date(x.doneAt).getTime() - new Date(x.calledAt).getTime()) / 1000)}`}
                       </span>
                     </li>
                   ))}

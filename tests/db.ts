@@ -33,8 +33,13 @@ export async function createShop(opts: { grace?: number; paused?: boolean } = {}
 let phoneSeq = 0;
 export const phone = () => `09${String(10_000_000 + ((Date.now() + phoneSeq++) % 89_999_999)).padStart(8, "0")}`;
 
-export function takeNumber(shopId: string, p: string | null = phone(), code = "1234") {
-  return call("pb_create_ticket", shopId, code, "Khách", p, "QR", token());
+export async function takeNumber(shopId: string, p: string | null = phone(), code?: string) {
+  const currentCode =
+    code ??
+    (
+      await pool.query(`select checkin_code from public.daily_sessions where shop_id = $1`, [shopId])
+    ).rows[0].checkin_code;
+  return call("pb_create_ticket", shopId, currentCode, "Khách", p, "QR", token());
 }
 
 export function staff(shopId: string, action: string, ticketId: string | null = null, idem: string | null = null) {
