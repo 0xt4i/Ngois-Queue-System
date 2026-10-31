@@ -1,199 +1,169 @@
-# Hệ thống bốc số Photobooth
+# Photobooth Queue System
 
-Một web app duy nhất cho tiệm photobooth, gồm 3 giao diện dùng chung dữ liệu realtime:
+> English is the default documentation language. See the [Vietnamese README](./README.vi.md).
 
-| Giao diện | Đường dẫn | Ai dùng |
+A single web app for photobooth shops with three realtime views sharing the same queue data:
+
+| View | URL | Users |
 |---|---|---|
-| Trang khách | `/s/{slug}` (và `/` chuyển về tiệm mặc định) → `/t/{token}` | Khách, trên điện thoại. **Một link** để vừa lấy số vừa xem đang tới lượt mấy |
-| Quầy nhân viên | `/staff` (cài đặt: `/staff/settings`, in QR: `/staff/print`) | Nhân viên / chủ tiệm |
-| Màn hình tiệm | `/display/{slug}?key=…` | TV treo ở tiệm |
+| Customer | `/s/{slug}` (and `/` redirects to the default shop), then `/t/{token}` | Customers on phones. One link lets them take a number and track the queue. |
+| Staff counter | `/staff` (`/staff/settings` for settings, `/staff/print` for QR printing) | Staff and shop owners |
+| Shop display | `/display/{slug}?key=…` | The shop TV |
 
-**Công nghệ:** Next.js 16 (App Router, TypeScript strict) + Tailwind, chạy trên **Vercel**. Database **Supabase** (Postgres 17), realtime bằng **Supabase Realtime**.
+**Stack:** Next.js 16 (App Router, strict TypeScript) + Tailwind, deployed on **Vercel**. Database: **Supabase** (Postgres 17) with **Supabase Realtime**.
 
----
+## 1. Architecture
 
-## 1. Kiến trúc
+### Architecture diagram
 
-```
-Điện thoại khách ─┐                                   ┌─ Supabase Postgres
-Quầy nhân viên ───┼─ HTTPS ─▶ Vercel (Next.js API) ──▶│   hàm pb_* = state machine
-Màn hình TV ──────┘                                   │   bảng queue_state (snapshot công khai)
-        ▲                                             └─ Supabase Realtime
-        └──────────── WebSocket (chỉ đọc queue_state) ◀──┘
-```
+![Architecture diagram](draw/architecture.drawio.png "Architecture diagram")
 
-- **Toàn bộ nghiệp vụ hàng đợi nằm trong các hàm Postgres** (`supabase/migrations/…_init.sql`): `pb_create_ticket`, `pb_staff_action` (Next / Vắng mặt / Gọi lại / Huỷ / Hoàn tác), `pb_set_code`, `pb_set_paused`… Mỗi hàm chạy trong 1 transaction và khoá dòng `daily_sessions` (`FOR UPDATE`), nên **cấp số luôn tuần tự, không trùng, không nhảy số**, kể cả khi nhiều khách bấm cùng lúc.
-- Sau mỗi thay đổi, hàm `pb_refresh_state` ghi lại **snapshot công khai** vào bảng `queue_state` (số đang chụp, thứ tự hàng chờ, số gọi lỡ, thời gian chụp TB, `version`…). Snapshot này **không chứa tên, SĐT hay mã ngày**.
-- Trình duyệt subscribe `queue_state` qua Supabase Realtime (kênh `shop:{shopId}`), dùng khoá anon và RLS chỉ cho đọc đúng bảng này. Khách **tự tính "còn bao nhiêu lượt"** từ snapshot + số của mình.
-- Dự phòng: nếu realtime rớt thì polling 15 giây, khi đang kết nối thì vẫn poll 60 giây/lần. Mở lại tab hoặc có mạng lại thì tải ngay. Client bỏ qua snapshot có `version` cũ hơn bản đang có.
-- Next.js API chỉ dùng **service role key phía server**. Mọi bảng khác bật RLS và không cấp quyền cho anon.
+- Queue business rules live in PostgreSQL functions in `supabase/migrations/`: `pb_create_ticket`, `pb_staff_action` (Next / No-show / Recall / Cancel / Undo), `pb_set_code`, `pb_set_paused`, and others. Each function runs in one transaction and locks `daily_sessions` with `FOR UPDATE`, so ticket numbers remain sequential and unique under concurrent requests.
+- After every mutation, `pb_refresh_state` writes a public snapshot to `queue_state`. It contains the serving number, waiting queue, missed numbers, average service time, and `version`, but no names, phone numbers, or daily codes.
+- Browsers subscribe to `queue_state` through Supabase Realtime on `shop:{shopId}`. The anon key and RLS allow read access only to this table. Customers calculate their remaining turns from the snapshot and their own ticket.
+- If Realtime is unavailable, clients poll every 15 seconds; while connected, they still poll once per minute. Tabs and network connections refresh immediately when restored. Older snapshots are ignored by `version`.
+- Next.js APIs use the service-role key only on the server. All other tables have RLS enabled and do not grant anon access.
 
 ```
 src/
-  app/            trang + API routes (api/shops, api/tickets, api/staff/…)
-  components/     ui/ (kiểu shadcn), customer/, staff/, display/
-  lib/            db, auth, rate-limit, validation (zod), position, use-queue-state (realtime)…
+  app/            pages and API routes
+  components/     ui/, customer/, staff/, display/
+  lib/            database, auth, rate limiting, validation, queue state
 supabase/
-  migrations/     schema + state machine (SQL)
-  seed.sql        dữ liệu demo
-tests/            vitest: state machine, đồng thời, logic vị trí
-e2e/              Playwright: luồng khách → nhân viên → màn hình
+  migrations/     schema and SQL state machine
+  seed.sql        demo data
+tests/            Vitest state-machine, concurrency, and position tests
+e2e/              Playwright customer → staff → display flow
 ```
 
----
+## 2. Run locally
 
-## 2. Chạy trên máy (local)
-
-Yêu cầu: Node 20+, Docker Desktop (cho Supabase local).
+Requirements: Node 20+ and Docker Desktop for local Supabase.
 
 ```bash
 npm install
-npx supabase start          # chạy Postgres + Realtime + API local (lần đầu tải image hơi lâu)
-npx supabase db reset       # tạo schema + nạp dữ liệu demo
-npx supabase status -o env  # lấy ANON_KEY, SERVICE_ROLE_KEY
-cp .env.example .env.local  # điền 2 khoá trên + NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+npx supabase start
+npx supabase db reset
+npx supabase status -o env
+cp .env.example .env.local
 npm run dev                 # http://localhost:3000
 ```
 
-Dữ liệu demo:
+Fill `.env.local` with the keys from `supabase status` and
+`NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321`.
 
-| | |
+Demo data:
+
+| View | URL / credentials |
 |---|---|
-| Trang khách | http://localhost:3000 → `/s/demo-photobooth`, **mã ngày `1234`** |
-| Nhân viên | http://localhost:3000/staff (tài khoản `owner` / `owner123` (chủ tiệm), `staff` / `staff123`) |
-| Màn hình tiệm | http://localhost:3000/display/demo-photobooth?key=demo-display-key |
-| Vé mẫu | 12 vé: 1–4, 6 đã chụp · 5 mất lượt · 7 gọi lỡ (còn ân hạn) · 8 đang chụp · 9 đã huỷ · 10–12 đang chờ. Mở thử `/t/demo-token-12` |
+| Customer | http://localhost:3000 → `/s/demo-photobooth`, daily code `1234` |
+| Staff | http://localhost:3000/staff, `owner` / `owner123` or `staff` / `staff123` |
+| Shop display | http://localhost:3000/display/demo-photobooth?key=demo-display-key |
+| Sample tickets | Tickets 1–12, including served, missed, serving, cancelled, and waiting examples. Try `/t/demo-token-12`. |
 
-### Kiểm thử
+### Tests
 
 ```bash
-npm test             # 36 test: state machine, ân hạn, hoàn tác, idempotency, trùng SĐT, tạm dừng,
-                     # reset ngày, 50 request lấy số song song → số 1..50
+npm test
 npm run build && npx playwright install chromium && npm run test:e2e
-                     # khách lấy số → nhân viên Next → trang khách & TV cập nhật < 2s
 ```
-Cả hai bộ test cần `npx supabase start` đang chạy. Test tự tạo tiệm riêng nên không đụng dữ liệu demo.
 
----
+Both test suites require `npx supabase start`. Tests create their own shop and do not modify the demo data. The unit suite covers the state machine, grace periods, undo, idempotency, duplicate phone numbers, pausing, daily reset, and 50 concurrent ticket requests.
 
-## 3. Biến môi trường
+## 3. Environment variables
 
-| Biến | Bắt buộc | Mô tả |
-|---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | ✔ | URL project Supabase |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✔ | Khoá **anon** (công khai). Chỉ dùng để nhận realtime |
-| `SUPABASE_SERVICE_ROLE_KEY` | ✔ | Khoá **service_role**. **Bí mật**, chỉ đặt trên Vercel, không đưa vào code |
-| `NEXT_PUBLIC_DEFAULT_SHOP_SLUG` | | Tiệm mở khi vào `/` (mặc định `demo-photobooth`) |
-| `NEXT_PUBLIC_APP_URL` | | URL công khai (vd `https://bocso.tiem.vn`), dùng in vào QR. Bỏ trống thì lấy theo domain đang truy cập |
-| `LOG_LEVEL` | | `info` (mặc định production) / `debug` |
-| `DATABASE_URL_TEST` | | Chỉ dùng khi chạy test local |
+| Variable | Required | Description |
+|---|---:|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Public anon key, used only for Realtime |
+| `SUPABASE_SERVICE_ROLE_KEY` | Yes | Secret service-role key; store it only on Vercel |
+| `NEXT_PUBLIC_DEFAULT_SHOP_SLUG` | No | Shop opened at `/`; defaults to `demo-photobooth` |
+| `NEXT_PUBLIC_APP_URL` | No | Public URL used for printed QR codes; falls back to the current domain |
+| `LOG_LEVEL` | No | `info` (production default) or `debug` |
+| `DATABASE_URL_TEST` | No | Used only for local tests |
 
----
-
-## 4. Triển khai: Supabase + Vercel
+## 4. Deploy with Supabase and Vercel
 
 ### 4.1 Supabase
-1. Tạo project tại supabase.com, chọn **region Singapore (ap-southeast-1)** cho gần Việt Nam.
-2. Đẩy schema lên:
+
+1. Create a project at [supabase.com](https://supabase.com), preferably in Singapore (`ap-southeast-1`) for Vietnam-based shops.
+2. Push the schema:
+
    ```bash
    npx supabase login
    npx supabase link --project-ref <project-ref>
    npx supabase db push
    ```
-3. Tạo tiệm + tài khoản chủ tiệm: mở **SQL Editor** và chạy (sửa tên/slug/mật khẩu):
+
+3. Create a shop and owner account in the SQL Editor. Replace the shop name, slug, and password:
+
    ```sql
    with s as (
-     insert into public.shops (slug, name) values ('ten-tiem', 'Tên Tiệm Photobooth') returning id
+     insert into public.shops (slug, name)
+     values ('shop-slug', 'My Photobooth Shop')
+     returning id
    )
-   insert into public.staff_users (shop_id, username, display_name, password_hash, role)
-   select id, 'owner', 'Chủ tiệm', extensions.crypt('MAT-KHAU-MANH', extensions.gen_salt('bf', 10)), 'OWNER' from s;
+   insert into public.staff_users
+     (shop_id, username, display_name, password_hash, role)
+   select id, 'owner', 'Shop owner',
+     extensions.crypt('USE-A-STRONG-PASSWORD', extensions.gen_salt('bf', 10)),
+     'OWNER'
+   from s;
    ```
-   (Muốn có dữ liệu demo thì chạy nội dung `supabase/seed.sql` thay cho bước này.)
-4. Vào **Project Settings → API** để lấy URL, khoá `anon` và khoá `service_role`.
+
+   To use demo data, run `supabase/seed.sql` instead.
+4. In **Project Settings → API**, copy the project URL, anon key, and service-role key.
 
 ### 4.2 Vercel
-1. Đẩy code lên GitHub, rồi **Import Project** trên Vercel (Framework: Next.js, giữ mặc định).
-2. Thêm các biến môi trường ở mục 3 (Production + Preview), đặt `NEXT_PUBLIC_DEFAULT_SHOP_SLUG` = slug tiệm vừa tạo.
-3. Deploy. `vercel.json` đã đặt function ở **Singapore (`sin1`)** cho cùng vùng với database.
-4. (Tuỳ chọn) gắn domain riêng ở **Settings → Domains**. Vercel tự cấp HTTPS, không cần Nginx hay Let's Encrypt.
-5. Sau khi deploy: đăng nhập `/staff`, vào **Cài đặt** để chỉnh tên, màu, logo, số lượt ân hạn… và **đổi mật khẩu**.
 
-> ⚠️ **Về gói dịch vụ:**
-> - **Vercel Hobby (miễn phí) không cho dùng cho mục đích thương mại.** Tiệm kinh doanh nên dùng gói **Pro**.
-> - **Supabase Free** giới hạn **200 kết nối realtime đồng thời** và tự tạm dừng project nếu 7 ngày không có truy cập. Nếu số người mở trang cùng lúc vượt giới hạn, các trang vẫn chạy nhờ polling 15 giây, chỉ chậm hơn. Muốn chắc chắn thì dùng **Pro**.
+1. Push the repository to GitHub and import it into Vercel as a Next.js project.
+2. Add the environment variables from section 3 to Production and Preview. Set `NEXT_PUBLIC_DEFAULT_SHOP_SLUG` to the shop slug.
+3. Deploy. `vercel.json` selects the Singapore region (`sin1`) to stay close to the database.
+4. Optionally add a custom domain under **Settings → Domains**. Vercel provides HTTPS automatically.
+5. After deployment, sign in at `/staff` and use **Settings** to configure the shop and change the password.
 
----
+> **Plan limits:** Vercel Hobby is not for commercial use; commercial shops should use Pro. Supabase Free supports up to 200 simultaneous Realtime connections and may pause an inactive project after seven days. Clients fall back to 15-second polling when the connection limit is exceeded.
 
-## 5. In QR & cài màn hình TV
+## 5. Print QR codes and set up the TV
 
-**In QR tại quầy:** vào **Cài đặt → In QR khổ A5** (hoặc `/staff/print`), bấm in, chọn khổ A5. Tờ in gồm logo, QR tới trang khách và 3 bước *Quét mã → Nhập mã ngày trên màn hình → Nhận số*. QR là link cố định, không cần in lại khi đổi mã ngày.
+**QR at the counter:** Open **Settings → Print A5 QR** (or `/staff/print`), print on A5 paper. The sheet includes the logo, customer URL, and three steps: scan the code, enter the daily code shown on screen, and get a number. The QR URL is stable, so it does not need to be reprinted when the daily code changes.
 
-**Màn hình TV:**
-1. Lấy **Link màn hình tiệm** trong **Cài đặt**. Link này có `key` bí mật, đừng chia sẻ.
-2. Mở link bằng Chrome trên Smart TV / Android box / mini PC, bấm nút ⛶ để toàn màn hình (hoặc F11).
-3. **Chạm/bấm vào màn hình 1 lần** để trình duyệt cho phép phát âm "ting" khi đổi số. Nút 🔊 dùng để bật/tắt.
-4. Màn hình tự chống tắt (Wake Lock, nếu trình duyệt hỗ trợ; TV có chế độ tiết kiệm điện riêng thì tắt nó đi). Nếu mất kết nối quá 30 giây, trang tự tải lại khi có mạng.
-5. Nghi lộ link thì bấm **Tạo khoá màn hình mới** (link cũ hết hiệu lực) rồi mở link mới trên TV.
+**Shop TV:**
 
----
+1. Copy the **Shop display link** from **Settings**. It contains a secret `key`; do not share it.
+2. Open it in Chrome on a smart TV, Android box, or mini PC. Use the fullscreen button or F11.
+3. Touch or click the screen once to allow the browser to play the notification sound. Use the volume button to toggle it.
+4. Wake Lock prevents the screen from sleeping where supported. Disable the TV's own power-saving mode if necessary. If the connection is unavailable for more than 30 seconds, the page reloads when the network returns.
+5. If the link may have been exposed, choose **Create new display key** in Settings. The old link becomes invalid.
 
-## 6. Nghiệp vụ & giả định đã chọn
+## 6. Business rules and assumptions
 
-- **Ngày làm việc** tính theo múi giờ tiệm (`Asia/Ho_Chi_Minh`) và **giờ reset** (mặc định 00:00). Sau giờ reset, số bắt đầu lại từ 1. Không cần cron: phiên ngày mới được tạo ở request đầu tiên.
-- **Mã ngày:** chế độ *Tự sinh* tạo mã mới mỗi ngày. Chế độ *Nhân viên tự đặt* giữ mã cũ qua ngày cho tới khi nhân viên đổi. "Tự đổi mã mỗi N giờ" được kiểm tra mỗi khi có truy cập, và màn hình TV hỏi lại mỗi 60 giây nên mã luôn mới.
-- **Ân hạn (mặc định 2 lượt):** bị gọi lỡ ở lượt k thì còn được "Gọi lại" khi chưa có quá 2 vé khác được gọi vào chụp. Đến vé thứ 3 thì tự chuyển **Mất lượt**. Không có người chụp thì không tính lượt.
-- **Gọi lại:** vé được chèn làm lượt kế tiếp, không ngắt lượt đang chụp. Nếu lúc đó không ai đang chụp thì được gọi vào ngay. Vé đã gọi lại mà lại vắng thì được thêm một lần ân hạn nữa (nhân viên tự quyết).
-- **Hoàn tác:** chỉ áp dụng cho thao tác Next / Vắng mặt / Gọi lại **gần nhất**, trong 60 giây, và chỉ khi sau đó chưa có thao tác nào khác thay đổi hàng (huỷ vé…). Không hoàn tác được việc huỷ vé.
-- **Trùng SĐT:** khi SĐT đã có vé đang chờ, đang chụp hoặc gọi lỡ trong ngày, hệ thống trả lại vé cũ. Vé đã chụp xong, mất lượt hoặc đã huỷ thì được lấy số mới. Lưu ý: ai biết SĐT **và** đang ở tiệm (biết mã ngày) thì mở được vé đó. Đây là đánh đổi để có tính năng "tra cứu bằng SĐT" theo yêu cầu.
-- **Khách chỉ huỷ được** vé đang chờ hoặc gọi lỡ, không huỷ được vé đang chụp.
-- **Tạm dừng nhận số:** chặn khách tự lấy số, nhưng nhân viên vẫn thêm khách thủ công được.
-- **Thêm khách thủ công:** không cần mã ngày, SĐT tuỳ chọn. Màn hình hiện số to kèm QR để khách theo dõi nếu muốn. Chưa hỗ trợ máy in bill nhiệt.
-- **Ước lượng thời gian chờ** = số lượt phía trước × thời gian chụp TB hôm nay. Chỉ tính các lượt từ 30 giây tới 3 giờ, và cần ít nhất 2 lượt đã xong; chưa đủ dữ liệu thì dùng giá trị mặc định trong Cài đặt (10 phút).
-- **Rate limit** lưu trong Postgres (dùng chung cho mọi serverless instance): sai mã ngày 5 lần / 10 phút / IP + thiết bị, 30 lần / 10 phút / IP; lấy số và tra cứu 60 lần / 10 phút / IP (wifi tiệm thường dùng chung IP); đăng nhập sai 10 lần / 10 phút.
-- **Bảo mật:** token vé 192-bit; mật khẩu bcrypt; session cookie `httpOnly`, `SameSite=Lax`, `Secure`, chỉ lưu hash của token; CSRF chặn bằng kiểm tra `Origin`; header CSP, X-Frame-Options, nosniff. SĐT tự xoá sau 30 ngày (cấu hình được).
-- **Đa tiệm:** mọi bảng có `shop_id`, username nhân viên là duy nhất toàn hệ thống. Tickets có sẵn `station_id` (để trống) cho bản nhiều phòng chụp.
+- Business dates use the shop timezone (`Asia/Ho_Chi_Minh`) and reset time (00:00 by default). Numbers restart at 1 after reset; the next request creates the new daily session.
+- **Daily code:** automatic mode generates a new code each day. Manual mode keeps the code until staff changes it. Automatic rotation every N hours is checked on access, and the TV checks every 60 seconds.
+- **Grace period:** the default is two turns. A missed ticket at turn k can be recalled until two other tickets have been called. On the third call it becomes **Expired**. Calls made while nobody is being served do not count.
+- **Recall:** a recalled ticket is placed next, without interrupting the current serving ticket. If nobody is serving, it is called immediately. Staff decide whether another grace period applies after a second no-show.
+- **Undo:** only the most recent Next / No-show / Recall action can be undone within 60 seconds, and only if no later queue-changing action occurred. Cancellation cannot be undone.
+- **Duplicate phone numbers:** if a phone number already has a waiting, serving, or missed ticket that day, the old ticket is returned. Completed, expired, and cancelled tickets can receive a new number. Anyone who knows the phone number and daily code can access that ticket; this is the trade-off for phone-number lookup.
+- Customers can cancel only waiting or missed tickets, not a serving ticket.
+- Pausing ticket intake blocks customer self-service but still allows staff to add customers manually.
+- Manual tickets do not require the daily code and may omit a phone number. The display shows a large number and QR code; thermal receipt printing is not supported.
+- Estimated waiting time is turns ahead multiplied by today's average service time. Only services lasting 30 seconds to 3 hours count, and at least two completed services are required; otherwise the configured default (10 minutes) is used.
+- Rate limits are stored in Postgres and shared by all serverless instances: wrong daily code 5 times per 10 minutes per IP and device, 30 times per 10 minutes per IP; ticket creation and lookup 60 times per 10 minutes per IP; failed login 10 times per 10 minutes.
+- Security measures include 192-bit ticket tokens, bcrypt passwords, `httpOnly`, `SameSite=Lax`, and `Secure` session cookies, hashed session tokens, Origin-based CSRF checks, CSP, `X-Frame-Options`, and `nosniff`. Phone numbers are deleted after 30 days by default.
+- Every table is scoped by `shop_id`; staff usernames are unique globally. Tickets already have an optional `station_id` for future multi-room support.
 
----
+## 7. Feature status
 
-## 7. Checklist đối chiếu yêu cầu
+The implementation includes the three shared realtime views, sequential concurrent-safe numbering, the full ticket state machine, grace periods and undo, phone lookup and cancellation, staff roles and idempotent actions, display-board audio and Wake Lock, settings, A5 QR printing, CSV export, REST APIs with Zod validation, structured logging, unit tests, Playwright E2E tests, and demo seed data.
 
-| Yêu cầu | Trạng thái | Ghi chú |
-|---|---|---|
-| Một app, 3 giao diện, dùng chung dữ liệu realtime | ✅ Đã làm | |
-| Khách chỉ dùng 1 link: lấy số + xem đang chụp số mấy | ✅ Đã làm | `/s/{slug}` hiện cả số đang chụp; sau khi lấy số chuyển sang `/t/{token}` |
-| Mã ngày 4 số, bắt có mặt tại tiệm | ✅ Đã làm | Hiện trên TV và quầy nhân viên |
-| State machine WAITING/SERVING/DONE/SKIPPED/EXPIRED/CANCELLED | ✅ Đã làm | Hàm Postgres, có test |
-| Cấp số tuần tự an toàn đồng thời, unique `(shop_id, business_date, number)` | ✅ Đã làm | Test 50 request song song |
-| Next / Vắng mặt / Gọi lại / ân hạn / EXPIRED không cần cron | ✅ Đã làm | |
-| Hoàn tác 60 giây | ✅ Đã làm | |
-| 1 SĐT tối đa 1 vé hiệu lực/ngày, trả vé cũ | ✅ Đã làm | Có thêm unique index một phần làm chốt chặn |
-| Số lượt phía trước (quy tắc 8) | ✅ Đã làm | |
-| Trang khách: form, validate SĐT VN, lỗi thân thiện, giới hạn sai mã | ✅ Đã làm | |
-| Trang vé: số to, đang chụp, còn N lượt, ước lượng, banner theo trạng thái, rung | ✅ Đã làm | |
-| Realtime, "Cập nhật lúc", chấm xanh/đỏ, tự kết nối lại, visibilitychange | ✅ Đã làm | |
-| Lưu vé (link + localStorage), tra cứu bằng SĐT, huỷ số | ✅ Đã làm | |
-| Nhân viên: đăng nhập, vai trò OWNER/STAFF | ✅ Đã làm | |
-| Nút NEXT / VẮNG MẶT / HOÀN TÁC, đồng hồ, phím tắt, chống double-click + Idempotency-Key | ✅ Đã làm | |
-| Danh sách chờ, gọi lỡ (GỌI LẠI), mất lượt làm mờ, thêm thủ công | ✅ Đã làm | Thêm thủ công chỉ hiện số + QR, chưa in bill |
-| Đổi mã (ngẫu nhiên hoặc tự đặt), tạm dừng / mở lại | ✅ Đã làm | |
-| Thống kê hôm nay, audit log mọi thao tác | ✅ Đã làm | Audit log xem trong Supabase (bảng `audit_logs`), chưa có giao diện xem |
-| Màn hình TV: số cực lớn, số tiếp theo, gọi lỡ, QR + mã ngày, nhấp nháy + ting, Wake Lock, tự reload | ✅ Đã làm | |
-| Cài đặt: tên, logo (URL), màu, slug, ân hạn, giờ reset, chế độ mã, tự đổi mã | ✅ Đã làm | Logo nhập bằng URL, chưa có upload |
-| Quản lý tài khoản, in QR A5, xuất CSV | ✅ Đã làm | CSV có BOM cho Excel, chống CSV-injection |
-| API REST + zod theo danh sách | ✅ Đã làm | Thêm: `/api/shops/{slug}/display`, `/api/staff/auth/*`, `POST /api/staff/settings` (đổi khoá TV) |
-| `GET /api/shops/{slug}/stream` (SSE) + LISTEN/NOTIFY | 🔁 Thay thế | **Supabase Realtime** thay cho SSE, vì Vercel serverless không giữ được kết nối SSE lâu. Vẫn đủ: đẩy snapshot, `version`, fallback polling 15s, chạy nhiều instance |
-| PostgreSQL 16 + Prisma | 🔁 Thay thế | Supabase Postgres 17 + **SQL migrations** của Supabase CLI. Logic nằm trong hàm SQL nên không cần ORM |
-| Dockerfile + docker-compose, Nginx + Let's Encrypt | 🔁 Thay thế | Deploy lên **Vercel** (HTTPS tự động). Docker chỉ dùng cho Supabase local |
-| Auth session cookie tự quản lý, bcrypt | ✅ Đã làm | |
-| QR `qrcode`, ngày giờ `date-fns-tz` / múi giờ VN | ✅ Đã làm | |
-| shadcn/ui | ⚠️ Một phần | Component tự viết theo phong cách shadcn (cva + tailwind-merge), không cài bằng CLI để giữ bundle nhỏ |
-| PWA (manifest, icon) | ✅ Đã làm | Chưa có service worker / offline (không cần cho "Thêm vào màn hình chính") |
-| Tiếng Việt, chữ ≥ 16px, nút ≥ 44px, mobile-first | ✅ Đã làm | |
-| Rate limit, token ≥ 128-bit, CSRF, không lộ dữ liệu khách khác, header bảo mật | ✅ Đã làm | CSP còn dùng `'unsafe-inline'` cho script (Next.js cần nếu không dùng nonce) |
-| Chịu 200 khách mở trang cùng lúc | ⚠️ Chưa đo tải | Realtime do Supabase gánh. Gói Free giới hạn 200 kết nối realtime, vượt thì client tự chuyển sang polling. Chưa chạy load test |
-| Log có cấu trúc (pino) | ✅ Đã làm | JSON ra stdout, xem trong Vercel Logs |
-| Unit test state machine + test đồng thời | ✅ Đã làm | 36 test pass |
-| E2E Playwright < 2s | ✅ Đã làm | Đo được ~0,1 giây ở local |
-| Seed: tiệm demo, owner/staff, mã 1234, 12 vé | ✅ Đã làm | |
-| README tiếng Việt | ✅ Đã làm | |
-| Ngoài phạm vi: đặt lịch, cọc, Zalo ZNS/SMS, nhiều phòng | ⏭ Chưa làm (đúng yêu cầu) | Đã có `station_id` trên tickets |
+The following design choices replaced the original plan:
+
+| Original plan | Current implementation |
+|---|---|
+| SSE stream with `LISTEN/NOTIFY` | Supabase Realtime, because Vercel serverless functions cannot keep long-lived SSE connections |
+| PostgreSQL 16 + Prisma | Supabase Postgres 17 with SQL migrations and database functions |
+| Docker, Nginx, and Let's Encrypt deployment | Vercel deployment; Docker is used only for local Supabase |
+| Full shadcn/ui installation | Small custom components following the shadcn style |
+| Offline service worker | PWA manifest and icon only; offline mode is not needed for “Add to home screen” |
+
+Out of scope: reservations, deposits, Zalo ZNS/SMS, and multiple photo rooms. The `station_id` column is already available for future multi-room support.
