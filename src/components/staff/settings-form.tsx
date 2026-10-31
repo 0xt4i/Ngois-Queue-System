@@ -60,7 +60,7 @@ export function SettingsForm({ initial, baseUrl, today }: { initial: SettingsVal
     }
   }
 
-  const customerLink = `${baseUrl}/s/${saved.slug}`;
+  const customerLink = `${baseUrl}/${saved.slug}`;
   const displayLink = `${baseUrl}/display/${saved.slug}?key=${saved.displayKey}`;
 
   return (
@@ -74,7 +74,7 @@ export function SettingsForm({ initial, baseUrl, today }: { initial: SettingsVal
             <Field label="Tên tiệm" error={errors.name}>
               <Input value={v.name} onChange={(e) => set("name", e.target.value)} />
             </Field>
-            <Field label="Slug (đường dẫn /s/…)" error={errors.slug}>
+            <Field label="Slug (đường dẫn /…)" error={errors.slug}>
               <Input value={v.slug} onChange={(e) => set("slug", e.target.value.toLowerCase())} />
             </Field>
             <Field label="Logo (URL ảnh, tuỳ chọn)" error={errors.logoUrl}>

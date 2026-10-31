@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "Bốc số Photobooth",
     short_name: "Bốc số",
     description: "Lấy số và theo dõi lượt chụp trực tiếp.",
-    start_url: `/s/${env.defaultShopSlug}`,
+    start_url: `/${env.defaultShopSlug}`,
     display: "standalone",
     background_color: "#fafafa",
     theme_color: "#e11d48",

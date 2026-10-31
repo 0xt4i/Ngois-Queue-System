@@ -11,5 +11,5 @@ export async function publicBaseUrl(): Promise<string> {
 }
 
 export async function customerUrl(slug: string) {
-  return `${await publicBaseUrl()}/s/${slug}`;
+  return `${await publicBaseUrl()}/${slug}`;
 }

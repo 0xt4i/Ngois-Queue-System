@@ -12,7 +12,7 @@ type Props = { params: Promise<{ slug: string }>; searchParams: Promise<{ code?:
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const shop = await getShopBySlug((await params).slug);
-  return { title: shop ? `Lấy số — ${shop.name}` : "Lấy số" };
+  return { title: "Lấy số", ...(shop ? { description: `Lấy số tại ${shop.name}` } : {}) };
 }
 
 export default async function ShopPage({ params, searchParams }: Props) {

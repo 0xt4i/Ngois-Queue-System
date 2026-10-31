@@ -95,7 +95,7 @@ export function TicketTracker({ initialTicket, initialState }: { initialTicket: 
 
   function newTicket() {
     clearTicketToken(ticket.shop.slug);
-    router.push(`/s/${ticket.shop.slug}`);
+    router.push(`/${ticket.shop.slug}`);
   }
 
   return (

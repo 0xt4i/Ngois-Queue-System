@@ -187,7 +187,7 @@ export function StaffDashboard({ me, initialQueue }: { me: StaffUser; initialQue
           >
             <Monitor className="h-4 w-4" /> {t("shopDisplay")} ↗
           </a>
-          <a href={`/s/${queue.shop.slug}`} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center gap-1.5 rounded-xl px-3 text-sm font-medium hover:bg-zinc-100">
+          <a href={`/${queue.shop.slug}`} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center gap-1.5 rounded-xl px-3 text-sm font-medium hover:bg-zinc-100">
             <ExternalLink className="h-4 w-4" /> {t("customerPage")}
           </a>
           {me.role === "OWNER" && (
