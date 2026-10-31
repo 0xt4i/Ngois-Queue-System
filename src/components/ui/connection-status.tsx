@@ -2,6 +2,7 @@
 
 import { fmtTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
 
 export function ConnectionStatus({
   connected,
@@ -12,6 +13,7 @@ export function ConnectionStatus({
   lastUpdate: Date | null;
   className?: string;
 }) {
+  const { t } = useI18n();
   return (
     <p className={cn("flex items-center justify-center gap-2 text-sm text-zinc-500", className)} aria-live="polite">
       <span
@@ -19,8 +21,8 @@ export function ConnectionStatus({
         aria-hidden
       />
       <span>
-        {connected ? "Đang cập nhật trực tiếp" : "Mất kết nối trực tiếp, đang thử lại"}
-        {lastUpdate ? ` · Cập nhật lúc ${fmtTime(lastUpdate, "HH:mm:ss")}` : ""}
+        {connected ? t("live") : t("disconnected")}
+        {lastUpdate ? ` · ${t("updatedAt")} ${fmtTime(lastUpdate, "HH:mm:ss")}` : ""}
       </span>
     </p>
   );

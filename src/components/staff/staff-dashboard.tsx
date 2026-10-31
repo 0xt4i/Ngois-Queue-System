@@ -27,12 +27,15 @@ import type { DayStats, StaffQueue, StaffTicket } from "@/lib/types";
 import { useQueueState } from "@/lib/use-queue-state";
 import { cn } from "@/lib/utils";
 import { ManualAddDialog } from "./manual-add-dialog";
+import { LanguageSwitcher } from "@/components/ui/language-switcher";
+import { useI18n } from "@/lib/i18n";
 
 type Toast = { kind: "ok" | "error"; text: string } | null;
 
 const ACTION_LABEL: Record<string, string> = { NEXT: "Next", SKIP: "Vắng mặt", RECALL: "Gọi lại" };
 
 export function StaffDashboard({ me, initialQueue }: { me: StaffUser; initialQueue: StaffQueue }) {
+  const { t } = useI18n();
   const router = useRouter();
   const [queue, setQueue] = useState(initialQueue);
   const [stats, setStats] = useState<DayStats | null>(null);
@@ -112,20 +115,20 @@ export function StaffDashboard({ me, initialQueue }: { me: StaffUser; initialQue
   const skip = useCallback(() => act("/api/staff/queue/skip", undefined, "Đã đánh dấu vắng mặt, gọi số {n}"), [act]);
   const undo = useCallback(() => act("/api/staff/queue/undo", undefined, "Đã hoàn tác"), [act]);
 
-  const t = queue.tickets;
-  const serving = t.find((x) => x.status === "SERVING") ?? null;
+  const tickets = queue.tickets;
+  const serving = tickets.find((x) => x.status === "SERVING") ?? null;
   const upcoming = useMemo(
     () => [
-      ...t
+      ...tickets
         .filter((x) => x.status === "SKIPPED" && x.recalled)
         .sort((a, b) => (a.recalledAt ?? "").localeCompare(b.recalledAt ?? "")),
-      ...t.filter((x) => x.status === "WAITING"),
+      ...tickets.filter((x) => x.status === "WAITING"),
     ],
     [t],
   );
-  const missed = t.filter((x) => x.status === "SKIPPED" && !x.recalled);
-  const expired = t.filter((x) => x.status === "EXPIRED").slice(-5).reverse();
-  const recentDone = t
+  const missed = tickets.filter((x) => x.status === "SKIPPED" && !x.recalled);
+  const expired = tickets.filter((x) => x.status === "EXPIRED").slice(-5).reverse();
+  const recentDone = tickets
     .filter((x) => x.status === "DONE")
     .sort((a, b) => (b.doneAt ?? "").localeCompare(a.doneAt ?? ""))
     .slice(0, 5);
@@ -161,7 +164,7 @@ export function StaffDashboard({ me, initialQueue }: { me: StaffUser; initialQue
   }
 
   const displayHref = `/display/${queue.shop.slug}?key=${queue.shop.displayKey}`;
-  const roleLabel = me.role === "OWNER" ? "Chủ tiệm" : "Nhân viên";
+  const roleLabel = me.role === "OWNER" ? t("owner") : t("staff");
 
   return (
     <main className="mx-auto max-w-6xl px-4 pb-16">
@@ -174,6 +177,7 @@ export function StaffDashboard({ me, initialQueue }: { me: StaffUser; initialQue
           </p>
         </div>
         <nav className="flex flex-wrap items-center gap-1">
+          <LanguageSwitcher />
           <a
             href={displayHref}
             target="_blank"
@@ -181,18 +185,18 @@ export function StaffDashboard({ me, initialQueue }: { me: StaffUser; initialQue
             title="Mở màn hình tiệm ở tab mới để đưa sang màn hình phụ"
             className="inline-flex h-11 items-center gap-1.5 rounded-xl px-3 text-sm font-medium hover:bg-zinc-100"
           >
-            <Monitor className="h-4 w-4" /> Màn hình tiệm ↗
+            <Monitor className="h-4 w-4" /> {t("shopDisplay")} ↗
           </a>
           <a href={`/s/${queue.shop.slug}`} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center gap-1.5 rounded-xl px-3 text-sm font-medium hover:bg-zinc-100">
-            <ExternalLink className="h-4 w-4" /> Trang khách
+            <ExternalLink className="h-4 w-4" /> {t("customerPage")}
           </a>
           {me.role === "OWNER" && (
             <Link href="/staff/settings" className="inline-flex h-11 items-center gap-1.5 rounded-xl px-3 text-sm font-medium hover:bg-zinc-100">
-              <Settings className="h-4 w-4" /> Cài đặt
+              <Settings className="h-4 w-4" /> {t("settings")}
             </Link>
           )}
           <Button variant="ghost" size="sm" onClick={logout}>
-            <LogOut className="h-4 w-4" /> Đăng xuất
+            <LogOut className="h-4 w-4" /> {t("logout")}
           </Button>
         </nav>
       </header>
@@ -205,7 +209,7 @@ export function StaffDashboard({ me, initialQueue }: { me: StaffUser; initialQue
           <CardContent>
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-sm font-medium uppercase tracking-wide text-zinc-500">Đang chụp</p>
+                <p className="text-sm font-medium uppercase tracking-wide text-zinc-500">{t("serving")}</p>
                 <p className="tabular text-8xl font-extrabold leading-none text-brand" data-testid="staff-current">
                   {serving?.number ?? "—"}
                 </p>
@@ -234,11 +238,11 @@ export function StaffDashboard({ me, initialQueue }: { me: StaffUser; initialQue
                 data-testid="btn-next"
               >
                 {busy ? <Loader2 className="h-8 w-8 animate-spin" /> : <SkipForward className="h-8 w-8" />}
-                NEXT
+                {t("next")}
                 {upcoming[0] && <span className="text-xl font-medium opacity-80">→ số {upcoming[0].number}</span>}
               </Button>
               <Button size="lg" variant="warning" onClick={skip} disabled={busy || !serving}>
-                <UserX className="h-5 w-5" /> VẮNG MẶT
+                <UserX className="h-5 w-5" /> {t("absent")}
               </Button>
               <Button
                 size="lg"
@@ -248,11 +252,11 @@ export function StaffDashboard({ me, initialQueue }: { me: StaffUser; initialQue
                 disabled={busy || !canUndo}
               >
                 <Undo2 className="h-5 w-5" />
-                {canUndo ? `HOÀN TÁC ${ACTION_LABEL[queue.undo!.action] ?? ""} (${undoLeft}s)` : "HOÀN TÁC"}
+                {canUndo ? `${t("undo")} ${ACTION_LABEL[queue.undo!.action] ?? ""} (${undoLeft}s)` : t("undo")}
               </Button>
             </div>
             <p className="mt-3 hidden text-xs text-zinc-400 sm:block">
-              Phím tắt: <kbd>Space</kbd>/<kbd>→</kbd> Next · <kbd>S</kbd> Vắng mặt · <kbd>Ctrl+Z</kbd> Hoàn tác
+              {t("shortcuts")}: <kbd>Space</kbd>/<kbd>→</kbd> {t("next")} · <kbd>S</kbd> {t("absent")} · <kbd>Ctrl+Z</kbd> {t("undo")}
             </p>
           </CardContent>
         </Card>
@@ -263,7 +267,7 @@ export function StaffDashboard({ me, initialQueue }: { me: StaffUser; initialQue
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm text-zinc-500">Mã ngày hiện tại</p>
+                  <p className="text-sm text-zinc-500">{t("currentCode")}</p>
                   <p className="tabular text-5xl font-extrabold tracking-[0.2em]" data-testid="staff-code">
                     {queue.session.checkinCode}
                   </p>
@@ -276,7 +280,7 @@ export function StaffDashboard({ me, initialQueue }: { me: StaffUser; initialQue
                 </Button>
               ) : (
                 <Button className="w-full" variant="secondary" onClick={() => act("/api/staff/session/pause", undefined, "Đã tạm dừng nhận số")} disabled={busy}>
-                  <Pause className="h-5 w-5" /> Tạm dừng nhận số
+                  <Pause className="h-5 w-5" /> {t("pausedTitle")}
                 </Button>
               )}
               {queue.shop.isPaused && (
@@ -290,7 +294,7 @@ export function StaffDashboard({ me, initialQueue }: { me: StaffUser; initialQue
           {/* THỐNG KÊ */}
           <Card>
             <CardHeader>
-              <CardTitle>Hôm nay</CardTitle>
+              <CardTitle>{t("today")}</CardTitle>
             </CardHeader>
             <CardContent className="grid grid-cols-3 gap-3 text-center">
               <Stat label="Tổng vé" value={stats?.total} />
@@ -308,14 +312,14 @@ export function StaffDashboard({ me, initialQueue }: { me: StaffUser; initialQue
         {/* DANH SÁCH CHỜ */}
         <Card>
           <CardHeader>
-            <CardTitle>Danh sách chờ ({upcoming.length})</CardTitle>
+            <CardTitle>{t("waitingList")} ({upcoming.length})</CardTitle>
             <Button size="sm" onClick={() => setManualOpen(true)}>
-              <UserPlus className="h-4 w-4" /> Thêm khách
+              <UserPlus className="h-4 w-4" /> {t("takeTicket")}
             </Button>
           </CardHeader>
           <CardContent className="px-2 sm:px-5">
             {upcoming.length === 0 ? (
-              <p className="py-6 text-center text-zinc-500">Chưa có khách nào đang chờ.</p>
+              <p className="py-6 text-center text-zinc-500">{t("noWaiting")}</p>
             ) : (
               <ul className="divide-y divide-zinc-100" data-testid="waiting-list">
                 {upcoming.map((x) => (
@@ -324,8 +328,8 @@ export function StaffDashboard({ me, initialQueue }: { me: StaffUser; initialQue
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-medium">
                         {x.name}
-                        {x.recalled && <span className="ml-2 rounded-full bg-sky-100 px-2 py-0.5 text-xs text-sky-700">Gọi lại</span>}
-                        {x.source === "MANUAL" && <span className="ml-2 rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600">Thủ công</span>}
+                        {x.recalled && <span className="ml-2 rounded-full bg-sky-100 px-2 py-0.5 text-xs text-sky-700">{t("recall")}</span>}
+                        {x.source === "MANUAL" && <span className="ml-2 rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600">{t("manual")}</span>}
                       </p>
                       <p className="text-sm text-zinc-500" title={x.phone ?? undefined}>
                         {maskPhone(x.phone)} · lấy lúc {fmtTime(x.createdAt)} · chờ {fmtDuration((now - new Date(x.createdAt).getTime()) / 1000)}
@@ -345,11 +349,11 @@ export function StaffDashboard({ me, initialQueue }: { me: StaffUser; initialQue
           {/* GỌI LỠ */}
           <Card>
             <CardHeader>
-              <CardTitle>Đã gọi lỡ</CardTitle>
+              <CardTitle>{t("missed")}</CardTitle>
             </CardHeader>
             <CardContent className="px-2 sm:px-5">
               {missed.length === 0 && expired.length === 0 && (
-                <p className="py-4 text-center text-zinc-500">Không có.</p>
+                <p className="py-4 text-center text-zinc-500">{t("none")}</p>
               )}
               <ul className="divide-y divide-zinc-100">
                 {missed.map((x) => (
@@ -382,11 +386,11 @@ export function StaffDashboard({ me, initialQueue }: { me: StaffUser; initialQue
           {/* VỪA CHỤP XONG */}
           <Card>
             <CardHeader>
-              <CardTitle>Vừa chụp xong</CardTitle>
+              <CardTitle>{t("recentlyDone")}</CardTitle>
             </CardHeader>
             <CardContent className="px-2 sm:px-5">
               {recentDone.length === 0 ? (
-                <p className="py-4 text-center text-zinc-500">Chưa có.</p>
+                <p className="py-4 text-center text-zinc-500">{t("noRecent")}</p>
               ) : (
                 <ul className="divide-y divide-zinc-100 text-sm">
                   {recentDone.map((x) => (

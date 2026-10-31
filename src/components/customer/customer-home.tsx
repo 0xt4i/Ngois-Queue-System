@@ -9,6 +9,7 @@ import { FieldError, Input, Label } from "@/components/ui/input";
 import { apiGet, apiSend, clearTicketToken, loadTicketToken, saveTicketToken } from "@/lib/api-client";
 import type { PublicShop, QueueSnapshot, TicketView } from "@/lib/types";
 import { useQueueState } from "@/lib/use-queue-state";
+import { useI18n } from "@/lib/i18n";
 import { LiveSummary } from "./live-summary";
 import { ShopHeader } from "./shop-header";
 
@@ -26,6 +27,7 @@ export function CustomerHome({
   initialState: QueueSnapshot;
   initialCode?: string;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const { snap, connected, lastUpdate } = useQueueState(shop.id, shop.slug, initialState);
   const [checking, setChecking] = useState(true);
@@ -92,25 +94,25 @@ export function CustomerHome({
       <section className="mt-6 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-zinc-200">
         {checking ? (
           <div className="flex items-center justify-center gap-2 py-10 text-zinc-500">
-            <Loader2 className="h-5 w-5 animate-spin" /> Đang kiểm tra số của bạn…
+            <Loader2 className="h-5 w-5 animate-spin" /> {t("checkingTicket")}
           </div>
         ) : paused ? (
           <div className="py-8 text-center">
             <PauseCircle className="mx-auto h-12 w-12 text-amber-500" />
-            <h2 className="mt-3 text-xl font-bold">Tiệm tạm ngưng nhận số</h2>
-            <p className="mt-2 text-zinc-600">Bạn vui lòng quay lại sau ít phút, hoặc hỏi nhân viên tại quầy nhé.</p>
+            <h2 className="mt-3 text-xl font-bold">{t("pausedTitle")}</h2>
+            <p className="mt-2 text-zinc-600">{t("pausedText")}</p>
           </div>
         ) : (
           <form onSubmit={submit} noValidate>
-            <h2 className="text-xl font-bold">Lấy số thứ tự</h2>
+            <h2 className="text-xl font-bold">{t("takeTicket")}</h2>
             <p className="mt-1 text-zinc-600">
-              {form.code ? "Mã ngày đã được điền tự động. Bạn chỉ cần nhập tên." : "Nhập mã ngày đang hiện trên màn hình tại quầy."}
+              {form.code ? t("codeAutoHint") : t("codeHint")}
             </p>
 
             <div className="mt-5 space-y-4">
               {!form.code && (
                 <div>
-                  <Label htmlFor="code">Mã ngày (4 số)</Label>
+                  <Label htmlFor="code">{t("dailyCode")}</Label>
                   <Input
                     id="code"
                     inputMode="numeric"
@@ -127,11 +129,11 @@ export function CustomerHome({
                 </div>
               )}
               <div>
-                <Label htmlFor="name">Tên của bạn</Label>
+                <Label htmlFor="name">{t("yourName")}</Label>
                 <Input
                   id="name"
                   autoComplete="name"
-                  placeholder="VD: Ngọc Anh"
+                  placeholder={t("namePlaceholder")}
                   maxLength={60}
                   value={form.name}
                   aria-invalid={!!errors.name}
@@ -145,7 +147,7 @@ export function CustomerHome({
 
             <Button type="submit" size="lg" className="mt-6 w-full" disabled={submitting}>
               {submitting && <Loader2 className="h-5 w-5 animate-spin" />}
-              Nhận số
+              {t("getTicket")}
             </Button>
           </form>
         )}
