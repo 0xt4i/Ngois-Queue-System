@@ -32,10 +32,8 @@ import { useI18n } from "@/lib/i18n";
 
 type Toast = { kind: "ok" | "error"; text: string } | null;
 
-const ACTION_LABEL: Record<string, string> = { NEXT: "Next", SKIP: "Vắng mặt", RECALL: "Gọi lại" };
-
 export function StaffDashboard({ me, initialQueue }: { me: StaffUser; initialQueue: StaffQueue }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const router = useRouter();
   const [queue, setQueue] = useState(initialQueue);
   const [stats, setStats] = useState<DayStats | null>(null);
@@ -111,9 +109,9 @@ export function StaffDashboard({ me, initialQueue }: { me: StaffUser; initialQue
     [loadQueue, loadStats, router, showToast],
   );
 
-  const next = useCallback(() => act("/api/staff/queue/next", undefined, "Đã gọi số {n}"), [act]);
-  const skip = useCallback(() => act("/api/staff/queue/skip", undefined, "Đã đánh dấu vắng mặt, gọi số {n}"), [act]);
-  const undo = useCallback(() => act("/api/staff/queue/undo", undefined, "Đã hoàn tác"), [act]);
+  const next = useCallback(() => act("/api/staff/queue/next", undefined, t("getNextCalled")), [act, t]);
+  const skip = useCallback(() => act("/api/staff/queue/skip", undefined, t("noShowCalled")), [act, t]);
+  const undo = useCallback(() => act("/api/staff/queue/undo", undefined, t("undoDone")), [act, t]);
 
   const tickets = queue.tickets;
   const serving = tickets.find((x) => x.status === "SERVING") ?? null;
@@ -172,7 +170,7 @@ export function StaffDashboard({ me, initialQueue }: { me: StaffUser; initialQue
         <div>
           <h1 className="text-xl font-bold">{queue.shop.name}</h1>
           <p className="text-sm text-zinc-500">
-            {roleLabel} · Ngày{" "}
+            {roleLabel} · {t("date")}{" "}
             {queue.session.businessDate.split("-").reverse().join("/")}
           </p>
         </div>
@@ -222,7 +220,7 @@ export function StaffDashboard({ me, initialQueue }: { me: StaffUser; initialQue
               </div>
               {serving?.calledAt && (
                 <div className="text-right">
-                  <p className="text-sm text-zinc-500">Đã chụp</p>
+                  <p className="text-sm text-zinc-500">{t("served")}</p>
                   <p className="tabular text-3xl font-bold">{fmtClock(now - new Date(serving.calledAt).getTime())}</p>
                 </div>
               )}
@@ -239,7 +237,7 @@ export function StaffDashboard({ me, initialQueue }: { me: StaffUser; initialQue
               >
                 {busy ? <Loader2 className="h-8 w-8 animate-spin" /> : <SkipForward className="h-8 w-8" />}
                 {t("next")}
-                {upcoming[0] && <span className="text-xl font-medium opacity-80">→ số {upcoming[0].number}</span>}
+                {upcoming[0] && <span className="text-xl font-medium opacity-80">{t("nextNumber")} {upcoming[0].number}</span>}
               </Button>
               <Button size="lg" variant="warning" onClick={skip} disabled={busy || !serving}>
                 <UserX className="h-5 w-5" /> {t("absent")}
@@ -252,7 +250,7 @@ export function StaffDashboard({ me, initialQueue }: { me: StaffUser; initialQue
                 disabled={busy || !canUndo}
               >
                 <Undo2 className="h-5 w-5" />
-                {canUndo ? `${t("undo")} ${ACTION_LABEL[queue.undo!.action] ?? ""} (${undoLeft}s)` : t("undo")}
+                {canUndo ? `${t("undo")} ${queue.undo!.action === "SKIP" ? t("absent") : queue.undo!.action === "RECALL" ? t("recall") : t("next")} (${undoLeft}s)` : t("undo")}
               </Button>
             </div>
             <p className="mt-3 hidden text-xs text-zinc-400 sm:block">
@@ -271,21 +269,21 @@ export function StaffDashboard({ me, initialQueue }: { me: StaffUser; initialQue
                   <p className="tabular text-5xl font-extrabold tracking-[0.2em]" data-testid="staff-code">
                     {queue.session.checkinCode}
                   </p>
-                  <p className="text-xs text-zinc-400">Đổi lúc {fmtTime(queue.session.codeUpdatedAt)}</p>
+                  <p className="text-xs text-zinc-400">{t("changeAt")} {fmtTime(queue.session.codeUpdatedAt)}</p>
                 </div>
               </div>
               {queue.shop.isPaused ? (
-                <Button className="w-full" variant="success" onClick={() => act("/api/staff/session/resume", undefined, "Đã mở lại nhận số")} disabled={busy}>
-                  <Play className="h-5 w-5" /> Mở lại nhận số
+                <Button className="w-full" variant="success" onClick={() => act("/api/staff/session/resume", undefined, t("resumeIntake"))} disabled={busy}>
+                  <Play className="h-5 w-5" /> {t("resumeIntake")}
                 </Button>
               ) : (
-                <Button className="w-full" variant="secondary" onClick={() => act("/api/staff/session/pause", undefined, "Đã tạm dừng nhận số")} disabled={busy}>
+                <Button className="w-full" variant="secondary" onClick={() => act("/api/staff/session/pause", undefined, t("pausedTitle"))} disabled={busy}>
                   <Pause className="h-5 w-5" /> {t("pausedTitle")}
                 </Button>
               )}
               {queue.shop.isPaused && (
                 <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
-                  Đang tạm dừng: khách không lấy số mới được. Bạn vẫn có thể thêm khách thủ công.
+                  {t("pausedNotice")}
                 </p>
               )}
             </CardContent>
@@ -297,12 +295,12 @@ export function StaffDashboard({ me, initialQueue }: { me: StaffUser; initialQue
               <CardTitle>{t("today")}</CardTitle>
             </CardHeader>
             <CardContent className="grid grid-cols-3 gap-3 text-center">
-              <Stat label="Tổng vé" value={stats?.total} />
-              <Stat label="Đã chụp" value={stats?.done} />
-              <Stat label="Đang chờ" value={stats ? stats.waiting : undefined} />
-              <Stat label="Gọi lỡ / mất lượt" value={stats ? `${stats.skipped}/${stats.expired}` : undefined} />
-              <Stat label="Dự kiến chụp" value="15 phút" />
-              <Stat label="Dự kiến chờ" value="10 phút" />
+              <Stat label={t("totalTickets")} value={stats?.total} />
+              <Stat label={t("served")} value={stats?.done} />
+              <Stat label={t("waiting")} value={stats ? stats.waiting : undefined} />
+              <Stat label={t("missedExpired")} value={stats ? `${stats.skipped}/${stats.expired}` : undefined} />
+              <Stat label={t("estimatedService")} value={language === "en" ? "15 minutes" : "15 phút"} />
+              <Stat label={t("estimatedWait")} value={language === "en" ? "10 minutes" : "10 phút"} />
             </CardContent>
           </Card>
         </div>
@@ -314,7 +312,7 @@ export function StaffDashboard({ me, initialQueue }: { me: StaffUser; initialQue
           <CardHeader>
             <CardTitle>{t("waitingList")} ({upcoming.length})</CardTitle>
             <Button size="sm" onClick={() => setManualOpen(true)}>
-              <UserPlus className="h-4 w-4" /> {t("takeTicket")}
+              <UserPlus className="h-4 w-4" /> {t("addCustomer")}
             </Button>
           </CardHeader>
           <CardContent className="px-2 sm:px-5">
@@ -332,11 +330,11 @@ export function StaffDashboard({ me, initialQueue }: { me: StaffUser; initialQue
                         {x.source === "MANUAL" && <span className="ml-2 rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600">{t("manual")}</span>}
                       </p>
                       <p className="text-sm text-zinc-500" title={x.phone ?? undefined}>
-                        {maskPhone(x.phone)} · lấy lúc {fmtTime(x.createdAt)} · chờ {fmtDuration((now - new Date(x.createdAt).getTime()) / 1000)}
+                        {maskPhone(x.phone)} · {t("at")} {fmtTime(x.createdAt)} · {t("waitingFor")} {fmtDuration((now - new Date(x.createdAt).getTime()) / 1000)}
                       </p>
                     </div>
                     <Button variant="ghost" size="sm" className="text-red-600" onClick={() => setConfirmCancel(x)}>
-                      Huỷ
+                      {t("cancel")}
                     </Button>
                   </li>
                 ))}
@@ -362,21 +360,21 @@ export function StaffDashboard({ me, initialQueue }: { me: StaffUser; initialQue
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-medium">{x.name}</p>
                       <p className="text-sm text-zinc-500">
-                        {maskPhone(x.phone)} · còn <strong>{x.turnsLeft}</strong> lượt ân hạn
+                        {maskPhone(x.phone)} · {t("turnsRemaining")}: <strong>{x.turnsLeft}</strong>
                       </p>
                     </div>
-                    <Button size="sm" onClick={() => act(`/api/staff/tickets/${x.id}/recall`, undefined, `Đã gọi lại số ${x.number}`)} disabled={busy}>
-                      GỌI LẠI
+                    <Button size="sm" onClick={() => act(`/api/staff/tickets/${x.id}/recall`, undefined, `${t("recall")} ${x.number}`)} disabled={busy}>
+                      {t("recall")}
                     </Button>
                     <Button variant="ghost" size="sm" className="text-red-600" onClick={() => setConfirmCancel(x)}>
-                      Huỷ
+                      {t("cancel")}
                     </Button>
                   </li>
                 ))}
                 {expired.map((x) => (
                   <li key={x.id} className="flex items-center gap-3 py-2 opacity-45">
                     <span className="tabular w-14 text-center text-xl font-bold">{x.number}</span>
-                    <p className="flex-1 truncate">{x.name} · mất lượt</p>
+                    <p className="flex-1 truncate">{x.name} · {t("expired")}</p>
                   </li>
                 ))}
               </ul>
@@ -418,13 +416,13 @@ export function StaffDashboard({ me, initialQueue }: { me: StaffUser; initialQue
         }}
       />
 
-      <Dialog open={!!confirmCancel} onClose={() => setConfirmCancel(null)} title={`Huỷ số ${confirmCancel?.number ?? ""}?`}>
+      <Dialog open={!!confirmCancel} onClose={() => setConfirmCancel(null)} title={`${t("cancel")} ${confirmCancel?.number ?? ""}?`}>
         <p className="text-zinc-600">
           Vé của <strong>{confirmCancel?.name}</strong> sẽ bị huỷ khỏi hàng đợi.
         </p>
         <div className="mt-5 grid grid-cols-2 gap-3">
           <Button variant="secondary" onClick={() => setConfirmCancel(null)}>
-            Không
+            {t("keepTicket")}
           </Button>
           <Button
             variant="destructive"
@@ -432,10 +430,10 @@ export function StaffDashboard({ me, initialQueue }: { me: StaffUser; initialQue
             onClick={() => {
               const x = confirmCancel;
               setConfirmCancel(null);
-              if (x) void act(`/api/staff/tickets/${x.id}/cancel`, undefined, `Đã huỷ số ${x.number}`);
+              if (x) void act(`/api/staff/tickets/${x.id}/cancel`, undefined, `${t("cancel")} ${x.number}`);
             }}
           >
-            Huỷ vé
+            {t("cancelTicket")}
           </Button>
         </div>
       </Dialog>

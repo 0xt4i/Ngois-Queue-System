@@ -6,6 +6,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { PublicShop, QueueSnapshot } from "@/lib/types";
 import { useQueueState } from "@/lib/use-queue-state";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
+import { LanguageSwitcher } from "@/components/ui/language-switcher";
 
 const RELOAD_AFTER_OFFLINE_MS = 30_000;
 const SOUND_KEY = "pb_display_sound";
@@ -43,6 +45,7 @@ export function DisplayBoard({
   qrSvg: string;
   customerUrl: string;
 }) {
+  const { t } = useI18n();
   const displayUrl = `/api/shops/${shop.slug}/display?key=${encodeURIComponent(displayKey)}`;
   const { snap, connected, disconnectedSince } = useQueueState(shop.id, shop.slug, initialState, displayUrl, 5_000);
   const [code, setCode] = useState(initialCode);
@@ -173,14 +176,15 @@ export function DisplayBoard({
         </div>
         <div className="no-print flex items-center gap-3 text-[2vh] text-zinc-400">
           <span className={cn("inline-block h-[1.4vh] w-[1.4vh] rounded-full", connected ? "bg-emerald-500" : "bg-red-500")} />
-          <button type="button" onClick={toggleSound} className="rounded-full p-3 hover:bg-white/10" aria-label="Bật/tắt âm thanh">
+          <LanguageSwitcher />
+          <button type="button" onClick={toggleSound} className="rounded-full p-3 hover:bg-white/10" aria-label="Toggle sound">
             {soundOn ? <Volume2 className="h-[3vh] w-[3vh]" /> : <VolumeX className="h-[3vh] w-[3vh]" />}
           </button>
           <button
             type="button"
             onClick={() => void document.documentElement.requestFullscreen?.()}
             className="rounded-full p-3 hover:bg-white/10"
-            aria-label="Toàn màn hình"
+            aria-label="Fullscreen"
           >
             <Maximize className="h-[3vh] w-[3vh]" />
           </button>
@@ -190,7 +194,7 @@ export function DisplayBoard({
       <div className="mt-[2vh] grid min-h-0 flex-1 grid-cols-[1.6fr_1fr] gap-[2.5vh]">
         {/* Số đang chụp */}
         <section className="flex flex-col items-center justify-center rounded-[3vh] bg-brand">
-          <p className="text-[6vh] font-bold uppercase tracking-wider text-white/90">Đang chụp</p>
+          <p className="text-[6vh] font-bold uppercase tracking-wider text-white/90">{t("serving")}</p>
           <p
             key={flash}
             className={cn("tabular text-[34vh] font-extrabold leading-none", flash > 0 && "animate-flash")}
@@ -200,7 +204,7 @@ export function DisplayBoard({
           </p>
           {snap?.isPaused && (
             <p className="mt-[2vh] rounded-full bg-black/30 px-[3vh] py-[1vh] text-[3vh] font-semibold">
-              Tiệm tạm ngưng nhận số mới
+              {t("pausedTitle")}
             </p>
           )}
         </section>
@@ -208,9 +212,9 @@ export function DisplayBoard({
         <div className="flex min-h-0 flex-col gap-[2.5vh]">
           {/* Số tiếp theo */}
           <section className="rounded-[3vh] bg-zinc-900 p-[2.5vh]">
-            <p className="text-[3.2vh] font-semibold text-zinc-300">Số tiếp theo</p>
+            <p className="text-[3.2vh] font-semibold text-zinc-300">{t("next")}</p>
             <div className="mt-[1.5vh] flex flex-wrap gap-[1.5vh]">
-              {next.length === 0 && <p className="text-[3.5vh] text-zinc-500">Chưa có ai chờ</p>}
+              {next.length === 0 && <p className="text-[3.5vh] text-zinc-500">{t("noWaiting")}</p>}
               {next.map((n, i) => (
                 <span
                   key={n}
@@ -229,7 +233,7 @@ export function DisplayBoard({
           {missed.length > 0 && (
             <section className="rounded-[3vh] bg-red-600 p-[2.5vh]">
               <p className="text-[3.6vh] font-bold leading-tight">
-                Số {missed.map((m) => m.number).join(", ")} vui lòng tới quầy
+                {missed.map((m) => m.number).join(", ")} — {t("customerPage")}
               </p>
               <p className="mt-[0.5vh] text-[2.4vh] text-white/85">Bạn đã bị gọi qua lượt — vẫn còn được hỗ trợ.</p>
             </section>
@@ -243,8 +247,8 @@ export function DisplayBoard({
               dangerouslySetInnerHTML={{ __html: qrMarkup }}
             />
             <div className="min-w-0">
-              <p className="text-[2.6vh] font-semibold leading-tight">Quét mã để lấy số</p>
-              <p className="mt-[1vh] text-[2.2vh] text-zinc-600">Mã ngày hôm nay</p>
+              <p className="text-[2.6vh] font-semibold leading-tight">{t("takeTicket")}</p>
+              <p className="mt-[1vh] text-[2.2vh] text-zinc-600">{t("today")} {t("dailyCode").toLowerCase()}</p>
               <p className="tabular text-[10vh] font-extrabold leading-none tracking-[0.15em]" data-testid="display-code">
                 {code}
               </p>
@@ -260,8 +264,8 @@ export function DisplayBoard({
           className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-black/70 text-[4vh] font-semibold"
         >
           <Volume2 className="h-[10vh] w-[10vh]" />
-          Chạm vào màn hình để bật âm thanh báo số
-          <span className="text-[2.4vh] font-normal text-zinc-300">(trình duyệt yêu cầu 1 lần chạm)</span>
+          Tap the screen to enable queue sounds
+          <span className="text-[2.4vh] font-normal text-zinc-300">(the browser requires one tap)</span>
         </button>
       )}
     </main>

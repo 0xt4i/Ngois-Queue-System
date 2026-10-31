@@ -7,9 +7,11 @@ import { Dialog } from "@/components/ui/dialog";
 import { FieldError, Input, Label } from "@/components/ui/input";
 import { apiSend } from "@/lib/api-client";
 import type { TicketView } from "@/lib/types";
+import { useI18n } from "@/lib/i18n";
 
 /** Thêm khách thủ công (khách không có điện thoại / lớn tuổi) → hiện số + QR để khách theo dõi nếu muốn. */
 export function ManualAddDialog({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: () => void }) {
+  const { t } = useI18n();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -48,12 +50,12 @@ export function ManualAddDialog({ open, onClose, onCreated }: { open: boolean; o
   }
 
   return (
-    <Dialog open={open} onClose={onClose} title={created ? "Số của khách" : "Thêm khách thủ công"}>
+    <Dialog open={open} onClose={onClose} title={created ? t("ticketNumber") : t("addCustomer")}>
       {created ? (
         <div className="text-center">
           {created.existing && (
             <p className="mb-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
-              Số điện thoại này đã có vé đang hiệu lực hôm nay — đây là vé cũ.
+              {t("existingTicket")}
             </p>
           )}
           <p className="text-zinc-500">{created.ticket.name}</p>
@@ -61,30 +63,30 @@ export function ManualAddDialog({ open, onClose, onCreated }: { open: boolean; o
           {qr && (
             <>
               {/* eslint-disable-next-line @next/next/no-img-element -- data URL */}
-              <img src={qr} alt="QR theo dõi số" className="mx-auto mt-4 h-48 w-48" />
-              <p className="mt-1 text-sm text-zinc-500">Khách có thể quét để theo dõi lượt trên điện thoại</p>
+              <img src={qr} alt="Ticket QR code" className="mx-auto mt-4 h-48 w-48" />
+              <p className="mt-1 text-sm text-zinc-500">{t("scanToTrack")}</p>
             </>
           )}
           <Button className="mt-5 w-full" onClick={onClose}>
-            Xong
+            {t("done")}
           </Button>
         </div>
       ) : (
         <form onSubmit={submit} className="space-y-4" noValidate>
           <div>
-            <Label htmlFor="m-name">Tên khách</Label>
+            <Label htmlFor="m-name">{t("customerName")}</Label>
             <Input id="m-name" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
             <FieldError>{errors.name}</FieldError>
           </div>
           <div>
-            <Label htmlFor="m-phone">Số điện thoại (không bắt buộc)</Label>
+            <Label htmlFor="m-phone">{t("phoneOptional")}</Label>
             <Input id="m-phone" type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
             <FieldError>{errors.phone}</FieldError>
           </div>
           {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
           <Button type="submit" className="w-full" disabled={busy}>
             {busy && <Loader2 className="h-5 w-5 animate-spin" />}
-            Cấp số
+            {t("issueTicket")}
           </Button>
         </form>
       )}

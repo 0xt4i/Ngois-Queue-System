@@ -12,11 +12,13 @@ import { derivePosition, estimateWaitSeconds, NEAR_TURN_THRESHOLD } from "@/lib/
 import type { QueueSnapshot, TicketStatus, TicketView } from "@/lib/types";
 import { useQueueState } from "@/lib/use-queue-state";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
 import { ShopHeader } from "./shop-header";
 
 const FINAL: TicketStatus[] = ["DONE", "EXPIRED", "CANCELLED"];
 
 export function TicketTracker({ initialTicket, initialState }: { initialTicket: TicketView; initialState: QueueSnapshot }) {
+  const { t } = useI18n();
   const router = useRouter();
   const [ticket, setTicket] = useState(initialTicket);
   const { snap, connected, lastUpdate } = useQueueState(ticket.shop.id, ticket.shop.slug, initialState);
@@ -132,7 +134,7 @@ export function TicketTracker({ initialTicket, initialState }: { initialTicket: 
             {ahead != null && (
               <p className="text-lg" data-testid="ahead">
                 {ahead === 0 ? (
-                  <strong>Bạn là lượt kế tiếp!</strong>
+                  <strong>{t("nextTurn")}</strong>
                 ) : (
                   <>
                     Còn <strong className="tabular text-2xl text-brand">{ahead}</strong> lượt nữa tới bạn
@@ -144,7 +146,7 @@ export function TicketTracker({ initialTicket, initialState }: { initialTicket: 
               <p className="flex items-center justify-center gap-1.5 text-zinc-600">
                 <Clock className="h-4 w-4" />
                 Khoảng ~{fmtDuration(estimateWaitSeconds(ahead, snap))}
-                <span className="text-sm text-zinc-400">(chỉ là ước tính)</span>
+                <span className="text-sm text-zinc-400">({t("estimatedOnly")})</span>
               </p>
             )}
           </div>
@@ -174,9 +176,9 @@ export function TicketTracker({ initialTicket, initialState }: { initialTicket: 
             // eslint-disable-next-line @next/next/no-img-element -- QR được tạo ở trình duyệt
             <img src={ticketQr} alt="QR để mở lại vé" className="mx-auto mt-3 h-44 w-44" />
           ) : (
-            <p className="mt-3 text-sm text-zinc-500">Đang tạo QR…</p>
+            <p className="mt-3 text-sm text-zinc-500">{t("creatingQr")}</p>
           )}
-          <p className="mt-2 text-sm text-zinc-500">Chụp màn hình QR này để mở lại vé khi cần.</p>
+          <p className="mt-2 text-sm text-zinc-500">{t("saveQr")}</p>
         </section>
         {isFinal ? (
           <Button size="lg" className="w-full" onClick={newTicket}>
@@ -225,6 +227,7 @@ function StatusBanner(props: {
   businessDate: string;
   shopName: string;
 }) {
+  const { t } = useI18n();
   const { status, ahead, turnsLeft, recalled } = props;
   const base = "flex items-start gap-3 rounded-2xl p-4 text-base";
 
@@ -245,8 +248,8 @@ function StatusBanner(props: {
         <div className={cn(base, "bg-emerald-600 text-white shadow-lg")} role="alert" data-testid="banner-serving">
           <BellRing className="mt-0.5 h-7 w-7 shrink-0 animate-bounce" />
           <div>
-            <p className="text-xl font-bold">Tới lượt bạn!</p>
-            <p>Mời bạn vào phòng chụp ngay nhé.</p>
+            <p className="text-xl font-bold">{t("yourTurn")}</p>
+            <p>{t("enterPhotoRoom")}</p>
           </div>
         </div>
       );
@@ -255,7 +258,7 @@ function StatusBanner(props: {
         <div className={cn(base, "bg-red-600 text-white")} role="alert">
           <AlertTriangle className="mt-0.5 h-6 w-6 shrink-0" />
           <div>
-            <p className="font-bold">Bạn đã bị gọi qua lượt.</p>
+            <p className="font-bold">{t("passedTurn")}</p>
             <p>
               {turnsLeft && turnsLeft > 0
                 ? `Hãy tới quầy trong vòng ${turnsLeft} lượt nữa để được hỗ trợ.`
@@ -269,7 +272,7 @@ function StatusBanner(props: {
         return (
           <div className={cn(base, "bg-sky-600 text-white")} role="alert">
             <BellRing className="mt-0.5 h-6 w-6 shrink-0" />
-            <p className="font-semibold">Nhân viên đã gọi lại số của bạn — bạn được chụp ở lượt kế tiếp.</p>
+            <p className="font-semibold">{t("recalledMessage")}</p>
           </div>
         );
       }
@@ -277,7 +280,7 @@ function StatusBanner(props: {
         return (
           <div className={cn(base, "bg-amber-400 text-zinc-950")} role="alert" data-testid="banner-near">
             <BellRing className="mt-0.5 h-6 w-6 shrink-0" />
-            <p className="font-semibold">Sắp tới lượt — hãy quay lại tiệm!</p>
+            <p className="font-semibold">{t("nearTurn")}</p>
           </div>
         );
       }
@@ -298,14 +301,14 @@ function StatusBanner(props: {
       return (
         <div className={cn(base, "bg-zinc-100 text-zinc-700")} role="status">
           <XCircle className="mt-0.5 h-6 w-6 shrink-0" />
-          <p>Số của bạn đã hết hiệu lực vì quá lượt. Bạn có thể lấy số mới (cần mã ngày tại quầy).</p>
+          <p>{t("expiredMessage")}</p>
         </div>
       );
     case "CANCELLED":
       return (
         <div className={cn(base, "bg-zinc-100 text-zinc-700")} role="status">
           <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0" />
-          <p>Bạn đã huỷ số này.</p>
+          <p>{t("cancelledMessage")}</p>
         </div>
       );
   }

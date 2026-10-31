@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FieldError, Input, Label, Select } from "@/components/ui/input";
 import { apiSend } from "@/lib/api-client";
+import { useI18n } from "@/lib/i18n";
 
 export interface SettingsValues {
   name: string;
@@ -23,6 +24,7 @@ export interface SettingsValues {
 }
 
 export function SettingsForm({ initial, baseUrl, today }: { initial: SettingsValues; baseUrl: string; today: string }) {
+  const { t } = useI18n();
   const router = useRouter();
   const [v, setV] = useState(initial);
   const [saved, setSaved] = useState(initial);
@@ -47,7 +49,7 @@ export function SettingsForm({ initial, baseUrl, today }: { initial: SettingsVal
     }
     setV(r.settings);
     setSaved(r.settings);
-    setMsg({ ok: true, text: "Đã lưu cài đặt." });
+    setMsg({ ok: true, text: t("savedSettings") });
     router.refresh();
   }
 
@@ -67,20 +69,20 @@ export function SettingsForm({ initial, baseUrl, today }: { initial: SettingsVal
     <>
       <Card>
         <CardHeader>
-          <CardTitle>Thông tin & quy tắc</CardTitle>
+          <CardTitle>{t("shopInfoRules")}</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={save} className="grid gap-4 sm:grid-cols-2" noValidate>
-            <Field label="Tên tiệm" error={errors.name}>
+            <Field label={t("shopName")} error={errors.name}>
               <Input value={v.name} onChange={(e) => set("name", e.target.value)} />
             </Field>
             <Field label="Slug (đường dẫn /…)" error={errors.slug}>
               <Input value={v.slug} onChange={(e) => set("slug", e.target.value.toLowerCase())} />
             </Field>
-            <Field label="Logo (URL ảnh, tuỳ chọn)" error={errors.logoUrl}>
+            <Field label={t("logoOptional")} error={errors.logoUrl}>
               <Input value={v.logoUrl} placeholder="https://…" onChange={(e) => set("logoUrl", e.target.value)} />
             </Field>
-            <Field label="Màu chủ đạo" error={errors.primaryColor}>
+            <Field label={t("primaryColor")} error={errors.primaryColor}>
               <div className="flex gap-2">
                 <input
                   type="color"
@@ -92,36 +94,36 @@ export function SettingsForm({ initial, baseUrl, today }: { initial: SettingsVal
                 <Input value={v.primaryColor} onChange={(e) => set("primaryColor", e.target.value)} />
               </div>
             </Field>
-            <Field label="Số lượt ân hạn khi gọi lỡ" error={errors.graceTurns} hint="Khách quay lại trong N lượt vẫn được chụp. Mặc định 2.">
+            <Field label={t("graceTurns")} error={errors.graceTurns} hint={t("graceHint")}>
               <Input type="number" min={0} max={20} value={v.graceTurns} onChange={(e) => set("graceTurns", Number(e.target.value))} />
             </Field>
-            <Field label="Thời gian chụp mặc định (phút)" error={errors.defaultServiceMinutes} hint="Dùng ước lượng thời gian chờ khi chưa đủ dữ liệu.">
+            <Field label={t("serviceMinutes")} error={errors.defaultServiceMinutes} hint={t("serviceHint")}>
               <Input type="number" min={1} max={180} value={v.defaultServiceMinutes} onChange={(e) => set("defaultServiceMinutes", Number(e.target.value))} />
             </Field>
-            <Field label="Giờ reset số mỗi ngày" error={errors.dayResetTime} hint="Sau giờ này số bắt đầu lại từ 1.">
+            <Field label={t("resetTime")} error={errors.dayResetTime} hint={t("resetHint")}>
               <Input type="time" value={v.dayResetTime} onChange={(e) => set("dayResetTime", e.target.value)} />
             </Field>
             <Field label="Mã ngày" error={errors.codeMode}>
               <Select value={v.codeMode} onChange={(e) => set("codeMode", e.target.value as "AUTO" | "MANUAL")}>
-                <option value="AUTO">Tự sinh mã mới mỗi ngày</option>
-                <option value="MANUAL">Nhân viên tự đặt (giữ mã cũ qua ngày)</option>
+                <option value="AUTO">{t("autoCode")}</option>
+                <option value="MANUAL">{t("manualCode")}</option>
               </Select>
             </Field>
             <Field
-              label="Tự đổi mã mỗi N giờ"
+              label={t("rotateCode")}
               error={errors.codeRotateHours}
-              hint="Mã cũng tự đổi ngay sau mỗi lượt nhận số. Đặt 0 để tắt đổi theo giờ."
+              hint={t("rotateHint")}
             >
               <Input type="number" min={0} max={24} value={v.codeRotateHours} onChange={(e) => set("codeRotateHours", Number(e.target.value))} />
             </Field>
-            <Field label="Tự xoá SĐT khách sau (ngày)" error={errors.phoneRetentionDays}>
+            <Field label={t("phoneRetention")} error={errors.phoneRetentionDays}>
               <Input type="number" min={1} max={3650} value={v.phoneRetentionDays} onChange={(e) => set("phoneRetentionDays", Number(e.target.value))} />
             </Field>
             <div className="sm:col-span-2">
               {msg && <p className={msg.ok ? "mb-3 text-emerald-700" : "mb-3 text-red-600"}>{msg.text}</p>}
               <Button type="submit" disabled={busy}>
                 {busy && <Loader2 className="h-5 w-5 animate-spin" />}
-                Lưu cài đặt
+                {t("saveSettings")}
               </Button>
             </div>
           </form>
@@ -130,17 +132,17 @@ export function SettingsForm({ initial, baseUrl, today }: { initial: SettingsVal
 
       <Card>
         <CardHeader>
-          <CardTitle>Link, QR & màn hình tiệm</CardTitle>
+          <CardTitle>{t("linksDisplay")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <LinkRow label="Link cho khách (in thành QR ở quầy)" value={customerLink} />
-          <LinkRow label="Link màn hình tiệm (mở trên TV — giữ bí mật)" value={displayLink} />
+          <LinkRow label={t("customerLink")} value={customerLink} />
+          <LinkRow label={t("displayLink")} value={displayLink} />
           <div className="flex flex-wrap gap-2">
             <a href="/staff/print" target="_blank" rel="noreferrer" className="inline-flex h-12 items-center gap-2 rounded-xl bg-brand px-5 font-semibold text-white">
-              <Printer className="h-5 w-5" /> In QR khổ A5
+              <Printer className="h-5 w-5" /> {t("printA5")}
             </a>
             <Button variant="outline" onClick={rotateDisplayKey}>
-              <RefreshCw className="h-4 w-4" /> Tạo khoá màn hình mới
+              <RefreshCw className="h-4 w-4" /> {t("newDisplayKey")}
             </Button>
           </div>
         </CardContent>
@@ -148,18 +150,18 @@ export function SettingsForm({ initial, baseUrl, today }: { initial: SettingsVal
 
       <Card>
         <CardHeader>
-          <CardTitle>Xuất danh sách vé (CSV)</CardTitle>
+          <CardTitle>{t("exportTickets")}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap items-end gap-2">
           <div>
-            <Label htmlFor="exp-date">Ngày</Label>
+            <Label htmlFor="exp-date">{t("date")}</Label>
             <Input id="exp-date" type="date" value={exportDate} max={today} onChange={(e) => setExportDate(e.target.value)} />
           </div>
           <a
             href={`/api/staff/export.csv?date=${exportDate}`}
             className="inline-flex h-12 items-center gap-2 rounded-xl border border-zinc-300 bg-white px-5 font-semibold hover:bg-zinc-50"
           >
-            <Download className="h-5 w-5" /> Tải CSV
+            <Download className="h-5 w-5" /> {t("downloadCsv")}
           </a>
         </CardContent>
       </Card>

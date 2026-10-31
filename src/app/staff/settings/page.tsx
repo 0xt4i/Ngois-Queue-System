@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SettingsForm } from "@/components/staff/settings-form";
+import { SettingsHeader } from "@/components/staff/settings-header";
 import { UsersManager } from "@/components/staff/users-manager";
 import { getStaff } from "@/lib/auth";
 import { todayInTz } from "@/lib/format";
@@ -21,12 +22,7 @@ export default async function SettingsPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-4 pb-16" style={brandStyle(shop.primary_color)}>
-      <header className="flex items-center justify-between py-4">
-        <h1 className="text-xl font-bold">Cài đặt tiệm</h1>
-        <Link href="/staff" className="inline-flex h-11 items-center rounded-xl px-3 font-medium hover:bg-zinc-100">
-          ← Về quầy
-        </Link>
-      </header>
+      <SettingsHeader />
       <div className="space-y-6">
         <SettingsForm
           baseUrl={await publicBaseUrl()}
